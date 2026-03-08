@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DeskBreak — 上班族放松操</title>
+
+    <script src="https://unpkg.com/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #080818;
+            color: white;
+            font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+
+        /* ── SCREENS ── */
+        .screen {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            opacity: 1;
+            transition: opacity 0.4s;
+            overflow-y: auto;
+        }
+        .screen.hidden { opacity: 0; pointer-events: none; }
+
+        /* ── LOADING ── */
+        #screen-loading {
+            background: #080818;
+            z-index: 100;
+        }
+        .spinner {
+            width: 48px; height: 48px;
+            border: 3px solid rgba(0,229,255,0.2);
+            border-top-color: #00e5ff;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { color: rgba(255,255,255,0.5); font-size: 0.8rem; letter-spacing: 0.1em; }
+
+        /* ── WELCOME ── */
+        #screen-welcome { gap: 28px; }
+        .app-title {
+            font-size: clamp(2rem, 8vw, 3rem);
+            font-weight: 900;
+            background: linear-gradient(135deg, #00e5ff, #7c4dff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+        }
+        .app-subtitle { color: rgba(255,255,255,0.45); font-size: 0.9rem; margin-top: -16px; }
+        .exercise-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            width: 100%;
+            max-width: 400px;
+        }
+        .ex-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 14px;
+            padding: 16px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .ex-card-icon { font-size: 1.6rem; }
+        .ex-card-name { font-size: 0.85rem; font-weight: 700; }
+        .ex-card-reps { font-size: 0.72rem; color: rgba(255,255,255,0.45); }
+        .btn-start {
+            padding: 16px 48px;
+            border-radius: 50px;
+            border: none;
+            background: linear-gradient(135deg, #00e5ff, #7c4dff);
+            color: white;
+            font-size: 1.05rem;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: 0.05em;
+            transition: transform 0.15s, opacity 0.15s;
+        }
+        .btn-start:active { transform: scale(0.96); opacity: 0.85; }
+
+        /* ── EXERCISE ── */
+        #screen-exercise { gap: 18px; justify-content: flex-start; padding-top: 32px; }
+        .session-dots { display: flex; gap: 10px; }
+        .dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.18);
+            transition: background 0.3s;
+        }
+        .dot.current { background: #00e5ff; box-shadow: 0 0 8px #00e5ff; }
+        .dot.done { background: rgba(0,229,255,0.35); }
+        .ex-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+        .ex-icon-wrap {
+            font-size: 3.5rem;
+            line-height: 1;
+        }
+        @keyframes anim-fist  { 0%,100%{transform:scale(1)} 50%{transform:scale(0.7)} }
+        @keyframes anim-circle { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+        @keyframes anim-overhead { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
+        @keyframes anim-spread { 0%,100%{transform:scale(1)} 50%{transform:scale(1.3)} }
+        .anim-fist    { animation: anim-fist    0.8s ease-in-out infinite; }
+        .anim-circle  { animation: anim-circle  2s linear infinite; }
+        .anim-overhead{ animation: anim-overhead 1.2s ease-in-out infinite; }
+        .anim-spread  { animation: anim-spread  1s ease-in-out infinite; }
+
+        .ex-name { font-size: 1.15rem; font-weight: 800; }
+        .ex-name-en { font-size: 0.78rem; color: rgba(255,255,255,0.45); }
+
+        /* Progress ring */
+        .ring-wrap {
+            position: relative;
+            width: 190px; height: 190px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .ring-wrap svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+        .ring-bg { stroke: rgba(255,255,255,0.08); }
+        .ring-fg {
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.5s cubic-bezier(0.4,0,0.2,1), stroke 0.4s;
+        }
+        .ring-center {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+        }
+        .rep-count {
+            font-size: 3.2rem;
+            font-weight: 900;
+            line-height: 1;
+            transition: color 0.4s;
+        }
+        @keyframes pop { 0%{transform:scale(1)} 30%{transform:scale(1.35)} 100%{transform:scale(1)} }
+        .pop { animation: pop 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+        .rep-goal { font-size: 0.8rem; color: rgba(255,255,255,0.4); }
+        .tap-hint { font-size: 0.65rem; color: rgba(255,255,255,0.25); margin-top: 4px; text-align: center; }
+
+        .tip-box {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 0.78rem;
+            color: rgba(255,255,255,0.5);
+            text-align: center;
+            max-width: 300px;
+        }
+        .hand-status {
+            font-size: 0.78rem;
+            padding: 6px 14px;
+            border-radius: 20px;
+            transition: all 0.3s;
+        }
+        .hand-ok   { background: rgba(76,175,80,0.2); color: #4caf50; border: 1px solid rgba(76,175,80,0.4); }
+        .hand-no   { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); border: 1px solid rgba(255,255,255,0.1); }
+        .next-preview {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.35);
+            text-align: center;
+        }
+
+        /* ── REST ── */
+        #screen-rest { gap: 20px; }
+        .rest-emoji { font-size: 4rem; }
+        .rest-label { font-size: 1.1rem; color: rgba(255,255,255,0.5); font-weight: 600; }
+        .rest-timer {
+            font-size: 5rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, #00e5ff, #7c4dff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1;
+        }
+        .rest-next { font-size: 0.85rem; color: rgba(255,255,255,0.4); }
+        .btn-skip {
+            padding: 12px 36px;
+            border-radius: 50px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: transparent;
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .btn-skip:hover { background: rgba(255,255,255,0.08); color: white; }
+
+        /* ── COMPLETE ── */
+        #screen-complete { gap: 24px; }
+        .complete-emoji { font-size: 4rem; }
+        .complete-title { font-size: 1.6rem; font-weight: 900; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            width: 100%;
+            max-width: 360px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 14px;
+            padding: 18px 14px;
+            text-align: center;
+        }
+        .stat-val { font-size: 2rem; font-weight: 900; color: #00e5ff; }
+        .stat-lbl { font-size: 0.72rem; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+        /* ── MONITOR ── */
+        #monitor-window {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 140px;
+            height: 105px;
+            background: rgba(0,0,0,0.8);
+            border: 1px solid rgba(0,229,255,0.25);
+            border-radius: 12px;
+            overflow: hidden;
+            z-index: 20;
+        }
+        @media (min-width: 768px) {
+            #monitor-window {
+                left: 20px;
+                transform: none;
+                width: 180px;
+                height: 135px;
+            }
+        }
+        #webcam-raw {
+            position: absolute;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        #hand-canvas {
+            position: absolute;
+            width: 100%; height: 100%;
+            transform: scaleX(-1);
+        }
+
+        /* ── OVERLAYS ── */
+        #particle-canvas {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 30;
+        }
+        #trail-canvas {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="screen-loading" class="screen">
+    <div class="spinner"></div>
+    <p class="loading-text">正在初始化摄像头…</p>
+</div>
+
+<!-- WELCOME -->
+<div id="screen-welcome" class="screen hidden">
+    <p class="app-title">DeskBreak</p>
+    <p class="app-subtitle">上班族放松操 · 手势计数</p>
+    <div class="exercise-grid">
+        <div class="ex-card" style="border-color:rgba(255,107,53,0.35)">
+            <span class="ex-card-icon">✊</span>
+            <span class="ex-card-name" style="color:#ff6b35">握拳松开</span>
+            <span class="ex-card-reps">× 15 次</span>
+        </div>
+        <div class="ex-card" style="border-color:rgba(124,77,255,0.35)">
+            <span class="ex-card-icon">🌀</span>
+            <span class="ex-card-name" style="color:#7c4dff">手腕绕圈</span>
+            <span class="ex-card-reps">× 10 次</span>
+        </div>
+        <div class="ex-card" style="border-color:rgba(0,188,212,0.35)">
+            <span class="ex-card-icon">🙌</span>
+            <span class="ex-card-name" style="color:#00bcd4">举手过头</span>
+            <span class="ex-card-reps">× 12 次</span>
+        </div>
+        <div class="ex-card" style="border-color:rgba(76,175,80,0.35)">
+            <span class="ex-card-icon">🖐</span>
+            <span class="ex-card-name" style="color:#4caf50">五指伸展</span>
+            <span class="ex-card-reps">× 20 次</span>
+        </div>
+    </div>
+    <button class="btn-start" onclick="startSession()">开始锻炼</button>
+</div>
+
+<!-- EXERCISE -->
+<div id="screen-exercise" class="screen hidden">
+    <div class="session-dots" id="session-dots"></div>
+    <div class="ex-header">
+        <div class="ex-icon-wrap" id="ex-icon">✊</div>
+        <div class="ex-name" id="ex-name">握拳松开</div>
+        <div class="ex-name-en" id="ex-name-en">Hand Open / Close</div>
+    </div>
+    <div class="ring-wrap" onclick="manualCount()">
+        <svg viewBox="0 0 190 190" width="190" height="190">
+            <circle class="ring-bg" cx="95" cy="95" r="82" fill="none" stroke-width="10"/>
+            <circle class="ring-fg" id="ring-fg" cx="95" cy="95" r="82" fill="none" stroke-width="10"
+                    stroke-dasharray="515" stroke-dashoffset="515" stroke="#ff6b35"/>
+        </svg>
+        <div class="ring-center">
+            <div class="rep-count" id="rep-count" style="color:#ff6b35">0</div>
+            <div class="rep-goal" id="rep-goal">/ 15</div>
+        </div>
+    </div>
+    <p class="tap-hint">点击计数区手动记录</p>
+    <div class="tip-box" id="tip-box">握紧拳头再完全张开</div>
+    <div class="hand-status hand-no" id="hand-status">请将手放入摄像头范围</div>
+    <div class="next-preview" id="next-preview"></div>
+</div>
+
+<!-- REST -->
+<div id="screen-rest" class="screen hidden">
+    <div class="rest-emoji">😮‍💨</div>
+    <div class="rest-label">休息一下</div>
+    <div class="rest-timer" id="rest-timer">20</div>
+    <div class="rest-next" id="rest-next">下一个：手腕绕圈</div>
+    <button class="btn-skip" onclick="skipRest()">跳过休息 →</button>
+</div>
+
+<!-- COMPLETE -->
+<div id="screen-complete" class="screen hidden">
+    <div class="complete-emoji">🎉</div>
+    <div class="complete-title">完成！太棒了</div>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-val" id="stat-reps">0</div>
+            <div class="stat-lbl">总次数</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-val" id="stat-exs">4</div>
+            <div class="stat-lbl">完成项目</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-val" id="stat-mins">0</div>
+            <div class="stat-lbl">用时(分钟)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-val">🏅</div>
+            <div class="stat-lbl">今日连续</div>
+        </div>
+    </div>
+    <button class="btn-start" onclick="restartSession()">再来一次</button>
+</div>
+
+<!-- CANVASES -->
+<canvas id="particle-canvas"></canvas>
+<canvas id="trail-canvas"></canvas>
+
+<!-- MONITOR -->
+<div id="monitor-window">
+    <video id="webcam-raw" playsinline muted></video>
+    <canvas id="hand-canvas"></canvas>
+</div>
+
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════
+   EXERCISES CONFIG
+═══════════════════════════════════════════════ */
+const EXERCISES = [
+    { id: 'fist_pump',    name: '握拳松开',   nameEn: 'Hand Open / Close', icon: '✊', iconAnim: 'anim-fist',    color: '#ff6b35', reps: 15, tip: '握紧拳头再完全张开' },
+    { id: 'hand_circle',  name: '手腕绕圈',   nameEn: 'Wrist Circles',      icon: '🌀', iconAnim: 'anim-circle',  color: '#7c4dff', reps: 10, tip: '用手腕画大圆圈' },
+    { id: 'overhead',     name: '举手过头',   nameEn: 'Overhead Reach',     icon: '🙌', iconAnim: 'anim-overhead',color: '#00bcd4', reps: 12, tip: '举手超过头顶后放下' },
+    { id: 'finger_spread',name: '五指伸展',   nameEn: 'Finger Spread',      icon: '🖐', iconAnim: 'anim-spread',  color: '#4caf50', reps: 20, tip: '五指张开后合拢' },
+];
+const CIRCUMFERENCE = 515;
+const REST_DURATION = 20;
+
+/* ═══════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════ */
+let currentScreen = 'loading';
+let currentExIdx  = 0;
+let currentReps   = 0;
+let detector      = null;
+let restTimerId   = null;
+let restRemaining = REST_DURATION;
+let sessionStart  = null;
+let handDetected  = false;
+let audioCtx      = null;
+let trailPoints   = [];
+
+/* ═══════════════════════════════════════════════
+   EXERCISE DETECTOR
+═══════════════════════════════════════════════ */
+class ExerciseDetector {
+    constructor(type) {
+        this.type = type;
+        this.state = 'idle';
+        this.history = [];
+        this.lastAngle = null;
+        this.totalAngle = 0;
+        this.cooldown = 0;
+        this.smoothX = null;
+        this.smoothY = null;
+    }
+    detect(landmarks) {
+        if (this.cooldown > 0) { this.cooldown--; return false; }
+        switch (this.type) {
+            case 'fist_pump':    return this._fistPump(landmarks);
+            case 'hand_circle':  return this._handCircle(landmarks);
+            case 'overhead':     return this._overhead(landmarks);
+            case 'finger_spread':return this._fingerSpread(landmarks);
+        }
+        return false;
+    }
+    _fistPump(lm) {
+        const palm = lm[0];
+        let dist = 0;
+        [8,12,16,20].forEach(id => dist += Math.hypot(lm[id].x - palm.x, lm[id].y - palm.y));
+        const score = dist / 4;
+        if (score < 0.17 && this.state !== 'closed') {
+            this.state = 'closed';
+        } else if (score > 0.36 && this.state === 'closed') {
+            this.state = 'open';
+            this.cooldown = 18;
+            return true;
+        }
+        return false;
+    }
+    _handCircle(lm) {
+        const wrist = lm[0];
+        this.smoothX = this.smoothX !== null ? this.smoothX * 0.6 + wrist.x * 0.4 : wrist.x;
+        this.smoothY = this.smoothY !== null ? this.smoothY * 0.6 + wrist.y * 0.4 : wrist.y;
+        const now = Date.now();
+        this.history.push({ x: this.smoothX, y: this.smoothY, t: now });
+        this.history = this.history.filter(p => now - p.t < 2500);
+        if (this.history.length < 20) return false;
+
+        let cx = 0, cy = 0;
+        this.history.forEach(p => { cx += p.x; cy += p.y; });
+        cx /= this.history.length; cy /= this.history.length;
+
+        let maxR = 0;
+        this.history.forEach(p => { const d = Math.hypot(p.x-cx, p.y-cy); if (d > maxR) maxR = d; });
+        if (maxR < 0.06) { this.lastAngle = null; this.totalAngle = 0; return false; }
+
+        const latest = this.history[this.history.length - 1];
+        const angle = Math.atan2(latest.y - cy, latest.x - cx);
+        if (this.lastAngle !== null) {
+            let delta = angle - this.lastAngle;
+            if (delta > Math.PI) delta -= Math.PI * 2;
+            if (delta < -Math.PI) delta += Math.PI * 2;
+            this.totalAngle += delta;
+            if (Math.abs(this.totalAngle) >= Math.PI * 2) {
+                this.totalAngle = 0;
+                this.lastAngle = null;
+                this.history = [];
+                this.smoothX = null;
+                this.smoothY = null;
+                this.cooldown = 20;
+                return true;
+            }
+        }
+        this.lastAngle = angle;
+        return false;
+    }
+    _overhead(lm) {
+        const wrist = lm[0];
+        if (wrist.y < 0.28 && this.state !== 'high') {
+            this.state = 'high';
+        } else if (wrist.y > 0.55 && this.state === 'high') {
+            this.state = 'low';
+            this.cooldown = 25;
+            return true;
+        }
+        return false;
+    }
+    _fingerSpread(lm) {
+        const spread = Math.hypot(lm[20].x - lm[8].x, lm[20].y - lm[8].y);
+        if (spread > 0.23 && this.state !== 'spread') {
+            this.state = 'spread';
+        } else if (spread < 0.09 && this.state === 'spread') {
+            this.state = 'closed';
+            this.cooldown = 12;
+            return true;
+        }
+        return false;
+    }
+}
+
+/* ═══════════════════════════════════════════════
+   PARTICLES
+═══════════════════════════════════════════════ */
+const particleCanvas = document.getElementById('particle-canvas');
+const pCtx = particleCanvas.getContext('2d');
+let particles = [];
+
+function resizeParticleCanvas() {
+    particleCanvas.width  = window.innerWidth;
+    particleCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeParticleCanvas);
+resizeParticleCanvas();
+
+function burstParticles(color) {
+    const cx = particleCanvas.width / 2;
+    const cy = particleCanvas.height / 2;
+    for (let i = 0; i < 30; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 3 + Math.random() * 7;
+        particles.push({
+            x: cx, y: cy,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 2,
+            alpha: 1,
+            size: 4 + Math.random() * 6,
+            color,
+        });
+    }
+    if (!animFrameId) animParticles();
+}
+
+let animFrameId = null;
+function animParticles() {
+    pCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+    particles = particles.filter(p => p.alpha > 0.01);
+    particles.forEach(p => {
+        p.x  += p.vx;
+        p.y  += p.vy;
+        p.vy += 0.3;   // gravity
+        p.alpha *= 0.92;
+        pCtx.save();
+        pCtx.globalAlpha = p.alpha;
+        pCtx.fillStyle = p.color;
+        pCtx.beginPath();
+        pCtx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
+        pCtx.fill();
+        pCtx.restore();
+    });
+    if (particles.length > 0) {
+        animFrameId = requestAnimationFrame(animParticles);
+    } else {
+        animFrameId = null;
+    }
+}
+
+/* ═══════════════════════════════════════════════
+   TRAIL
+═══════════════════════════════════════════════ */
+const trailCanvas = document.getElementById('trail-canvas');
+const tCtx = trailCanvas.getContext('2d');
+
+function resizeTrailCanvas() {
+    trailCanvas.width  = window.innerWidth;
+    trailCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeTrailCanvas);
+resizeTrailCanvas();
+
+function clearTrail() {
+    trailPoints = [];
+    tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+}
+
+function drawTrail(nx, ny, color) {
+    // Convert normalized [0,1] to screen coords
+    const x = (1 - nx) * trailCanvas.width;  // mirrored
+    const y = ny * trailCanvas.height;
+    const now = Date.now();
+    trailPoints.push({ x, y, t: now });
+    trailPoints = trailPoints.filter(p => now - p.t < 2500);
+    tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+    if (trailPoints.length < 2) return;
+    for (let i = 1; i < trailPoints.length; i++) {
+        const alpha = (i / trailPoints.length) * 0.7;
+        tCtx.beginPath();
+        tCtx.moveTo(trailPoints[i-1].x, trailPoints[i-1].y);
+        tCtx.lineTo(trailPoints[i].x,   trailPoints[i].y);
+        tCtx.strokeStyle = color;
+        tCtx.globalAlpha = alpha;
+        tCtx.lineWidth = 3;
+        tCtx.lineCap = 'round';
+        tCtx.stroke();
+    }
+    tCtx.globalAlpha = 1;
+}
+
+/* ════════════════��══════════════════════════════
+   AUDIO
+═══════════════════════════════════════════════ */
+function ensureAudio() {
+    if (!audioCtx) {
+        try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+    }
+}
+document.addEventListener('click', ensureAudio, { once: true });
+
+function playBleep() {
+    if (!audioCtx) return;
+    try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+    } catch(e) {}
+}
+
+/* ═══════════════════════════════════════════════
+   SCREEN MANAGEMENT
+═══════════════════════════════════════════════ */
+function showScreen(id) {
+    currentScreen = id.replace('screen-', '');
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.toggle('hidden', s.id !== id);
+    });
+}
+
+/* ═══════════════════════════════════════════════
+   SESSION LOGIC
+═══════════════════════════════════════════════ */
+function startSession() {
+    ensureAudio();
+    currentExIdx = 0;
+    sessionStart = Date.now();
+    loadExercise(0);
+}
+
+function loadExercise(idx) {
+    currentReps = 0;
+    const ex = EXERCISES[idx];
+    detector = new ExerciseDetector(ex.id);
+    clearTrail();
+
+    // Update dots
+    const dotsEl = document.getElementById('session-dots');
+    dotsEl.innerHTML = EXERCISES.map((_, i) => {
+        let cls = 'dot';
+        if (i < idx) cls += ' done';
+        if (i === idx) cls += ' current';
+        return `<div class="${cls}"></div>`;
+    }).join('');
+
+    // Update header
+    const iconEl = document.getElementById('ex-icon');
+    iconEl.textContent = ex.icon;
+    iconEl.className = 'ex-icon-wrap ' + ex.iconAnim;
+    document.getElementById('ex-name').textContent   = ex.name;
+    document.getElementById('ex-name-en').textContent = ex.nameEn;
+    document.getElementById('ex-name').style.color    = ex.color;
+
+    // Ring
+    document.getElementById('ring-fg').style.stroke           = ex.color;
+    document.getElementById('ring-fg').style.strokeDashoffset  = CIRCUMFERENCE;
+    document.getElementById('rep-count').textContent = '0';
+    document.getElementById('rep-count').style.color  = ex.color;
+    document.getElementById('rep-goal').textContent   = `/ ${ex.reps}`;
+
+    // Tip
+    document.getElementById('tip-box').textContent = ex.tip;
+
+    // Skeleton color (via CSS variable)
+    skeletonColor = ex.color;
+
+    // Next preview
+    const next = EXERCISES[idx + 1];
+    document.getElementById('next-preview').textContent = next
+        ? `下一个：${next.icon} ${next.name}` : '这是最后一项';
+
+    showScreen('screen-exercise');
+}
+
+function countRep() {
+    const ex = EXERCISES[currentExIdx];
+    currentReps++;
+    playBleep();
+    burstParticles(ex.color);
+
+    // Update counter
+    const countEl = document.getElementById('rep-count');
+    countEl.textContent = currentReps;
+    countEl.classList.remove('pop');
+    void countEl.offsetWidth;
+    countEl.classList.add('pop');
+
+    // Ring progress
+    const progress = Math.min(currentReps / ex.reps, 1);
+    document.getElementById('ring-fg').style.strokeDashoffset =
+        CIRCUMFERENCE * (1 - progress);
+
+    if (currentReps >= ex.reps) {
+        setTimeout(() => advanceExercise(), 500);
+    }
+}
+
+function manualCount() {
+    if (currentScreen !== 'exercise') return;
+    if (currentReps < EXERCISES[currentExIdx].reps) countRep();
+}
+
+function advanceExercise() {
+    const nextIdx = currentExIdx + 1;
+    if (nextIdx >= EXERCISES.length) {
+        showComplete();
+    } else {
+        currentExIdx = nextIdx;
+        startRest();
+    }
+}
+
+function startRest() {
+    clearTrail();
+    restRemaining = REST_DURATION;
+    const next = EXERCISES[currentExIdx];
+    document.getElementById('rest-timer').textContent = REST_DURATION;
+    document.getElementById('rest-next').textContent  = `下一个：${next.icon} ${next.name}`;
+    showScreen('screen-rest');
+    restTimerId = setInterval(() => {
+        restRemaining--;
+        document.getElementById('rest-timer').textContent = restRemaining;
+        if (restRemaining <= 0) {
+            clearInterval(restTimerId);
+            restTimerId = null;
+            loadExercise(currentExIdx);
+        }
+    }, 1000);
+}
+
+function skipRest() {
+    if (restTimerId) { clearInterval(restTimerId); restTimerId = null; }
+    loadExercise(currentExIdx);
+}
+
+function showComplete() {
+    const elapsed = Math.round((Date.now() - sessionStart) / 60000);
+    const total   = EXERCISES.reduce((s, e) => s + e.reps, 0);
+    document.getElementById('stat-reps').textContent = total;
+    document.getElementById('stat-exs').textContent  = EXERCISES.length;
+    document.getElementById('stat-mins').textContent  = Math.max(elapsed, 1);
+    showScreen('screen-complete');
+    clearTrail();
+}
+
+function restartSession() {
+    startSession();
+}
+
+/* ═══════════════════════════════════════════════
+   MEDIAPIPE
+═══════════════════════════════════════════════ */
+const video     = document.getElementById('webcam-raw');
+const handCanvas = document.getElementById('hand-canvas');
+const hCtx       = handCanvas.getContext('2d');
+let skeletonColor = '#ff6b35';
+
+function resizeHandCanvas() {
+    const mon = document.getElementById('monitor-window');
+    handCanvas.width  = mon.offsetWidth;
+    handCanvas.height = mon.offsetHeight;
+}
+window.addEventListener('resize', resizeHandCanvas);
+
+function onResults(results) {
+    hCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        handDetected = true;
+        updateHandStatus(true);
+        const lm = results.multiHandLandmarks[0];
+
+        // Draw skeleton
+        if (window.drawConnectors && window.drawLandmarks) {
+            drawConnectors(hCtx, lm, window.HAND_CONNECTIONS,
+                { color: skeletonColor, lineWidth: 2 });
+            drawLandmarks(hCtx, lm,
+                { color: skeletonColor, radius: 2 });
+        }
+
+        // Detection
+        if (currentScreen === 'exercise' && detector) {
+            const ex = EXERCISES[currentExIdx];
+            if (ex.id === 'hand_circle') {
+                drawTrail(lm[0].x, lm[0].y, ex.color);
+            }
+            const counted = detector.detect(lm);
+            if (counted && currentReps < ex.reps) countRep();
+        }
+    } else {
+        handDetected = false;
+        updateHandStatus(false);
+    }
+}
+
+function updateHandStatus(ok) {
+    const el = document.getElementById('hand-status');
+    if (ok) {
+        el.textContent = '✓ 手部已检测';
+        el.className = 'hand-status hand-ok';
+    } else {
+        el.textContent = '请将手放入摄像头范围';
+        el.className = 'hand-status hand-no';
+    }
+}
+
+async function initMediaPipe() {
+    const HandsClass  = window.Hands;
+    const CameraClass = window.Camera;
+
+    if (!HandsClass || !CameraClass) {
+        console.warn('MediaPipe not loaded, showing welcome anyway');
+        showScreen('screen-welcome');
+        document.getElementById('monitor-window').style.display = 'none';
+        return;
+    }
+
+    const hands = new HandsClass({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+    hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.6,
+    });
+    hands.onResults(onResults);
+
+    const cam = new CameraClass(video, {
+        onFrame: async () => { await hands.send({ image: video }); },
+        width: 320, height: 240,
+    });
+
+    try {
+        await cam.start();
+        resizeHandCanvas();
+        showScreen('screen-welcome');
+    } catch (e) {
+        console.warn('Camera failed:', e);
+        document.getElementById('monitor-window').style.display = 'none';
+        showScreen('screen-welcome');
+    }
+}
+
+/* ═══════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════ */
+window.addEventListener('load', () => {
+    // Small delay so CDN scripts have time to register globals
+    setTimeout(initMediaPipe, 600);
+});
+</script>
+</body>
+</html>

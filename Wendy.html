@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>For Wendy Gao - Magic Evolution</title>
+    <script src="https://unpkg.com/tailwindcss@3.4.1/src/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    
+    <!-- 引入 MediaPipe 资源 (使用 unpkg 替代 jsdelivr) -->
+    <script src="https://unpkg.com/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+
+    <style>
+        body { 
+            margin: 0; 
+            background: #050505; 
+            overflow: hidden; 
+            color: white; 
+            font-family: system-ui, -apple-system, sans-serif; 
+            touch-action: manipulation;
+        }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        
+        /* 顶部文字响应式适配 */
+        #ui-overlay { 
+            position: absolute; 
+            top: 20px; 
+            width: 100%; 
+            text-align: center; 
+            pointer-events: none; 
+            z-index: 10; 
+            padding: 0 10px;
+        }
+        .golden-text {
+            font-family: 'serif';
+            font-size: clamp(1.8rem, 8vw, 3.5rem);
+            font-weight: bold;
+            background: linear-gradient(to bottom, #fff7ad 0%, #ffa700 50%, #ff5e00 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 10px rgba(255, 166, 0, 0.6));
+            letter-spacing: 0.2rem;
+            text-transform: uppercase;
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        /* 状态控制区适配移动端 */
+        #status-container { 
+            position: absolute; 
+            bottom: clamp(100px, 25vh, 210px); 
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex; 
+            flex-direction: row; 
+            gap: 10px; 
+            z-index: 20; 
+            width: 90%;
+            max-width: 400px;
+            justify-content: center;
+        }
+        .status-light {
+            flex: 1;
+            padding: 12px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: all 0.3s ease;
+            background: rgba(30, 30, 30, 0.6);
+            backdrop-filter: blur(8px);
+            color: #999;
+            text-align: center;
+            cursor: pointer;
+            pointer-events: auto; /* 允许点击 */
+            user-select: none;
+        }
+        .active-open { background: #ff4500; color: white; box-shadow: 0 0 15px #ff4500; border-color: #ff8c00; }
+        .active-close { background: #ffd700; color: #333; box-shadow: 0 0 15px #ffd700; border-color: #fffacd; }
+
+        /* 摄像头监控窗适配 */
+        #monitor-window {
+            position: absolute; 
+            bottom: 20px; 
+            left: 50%;
+            transform: translateX(-50%);
+            width: 140px; 
+            height: 100px;
+            background: rgba(0, 0, 0, 0.8); 
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 12px; 
+            overflow: hidden; 
+            z-index: 10;
+        }
+        @media (min-width: 768px) {
+            #monitor-window { left: 20px; transform: none; width: 200px; height: 150px; }
+            #status-container { left: 20px; transform: none; flex-direction: column; width: auto; }
+        }
+
+        #webcam-raw { position: absolute; transform: scaleX(-1); width: 100%; height: 100%; object-fit: cover; opacity: 0.2; }
+        #hand-canvas { position: absolute; transform: scaleX(-1); width: 100%; height: 100%; }
+        
+        #loader { 
+            position: fixed; 
+            inset: 0; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            background: #050505; 
+            z-index: 100; 
+            transition: opacity 0.8s; 
+        }
+        
+        .hint-text {
+            position: absolute;
+            bottom: 130px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.4);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="text-center px-4">
+            <div class="inline-block w-10 h-10 border-3 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="text-yellow-500 tracking-tighter uppercase text-xs font-bold">魔法初始化中...</p>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div class="hint-text">🤏 捏合拖拽旋转 &nbsp;|&nbsp; ✋ 张手开礼物 &nbsp;|&nbsp; ✊ 握拳重组 &nbsp;|&nbsp; 无摄像头可鼠标/触摸拖拽</div>
+
+    <div id="status-container">
+        <div id="btn-open" class="status-light" onclick="toggleMode('open')">✋ 开启礼物</div>
+        <div id="btn-close" class="status-light active-close" onclick="toggleMode('close')">✊ 重组礼盒</div>
+    </div>
+
+    <div id="monitor-window">
+        <video id="webcam-raw" playsinline muted></video>
+        <canvas id="hand-canvas"></canvas>
+    </div>
+
+    <script>
+        const getHandsClass = () => window.Hands || (window.window && window.window.Hands);
+        const getCameraClass = () => window.Camera || (window.window && window.window.Camera);
+
+        let scene, camera, renderer, magicCard, cardTex, cardCtx, treeStarLight;
+        // 降低移动端性能压力，稍微调整粒子密度
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const sideSize = isMobile ? 28 : 40;
+        const boxParticlesCount = sideSize * sideSize * 6;
+        const bowParticlesCount = isMobile ? 700 : 1400;
+        const particleCount = boxParticlesCount + bowParticlesCount;
+        let particles = [];
+        
+        let mode = 'close';
+        let hasOpenedOnce = false;
+        let openCount = 0;
+        let morphTarget = 'box';
+
+        // 旋转控制状态
+        let targetRotationX = 0, targetRotationY = 0;
+        let isPinching = false, lastHandX = null, lastHandY = null;
+        let isDragging = false, lastDragX = null, lastDragY = null;
+
+        // 开场变体：'scatter'=爆炸散开 | 'text'=粒子组成文字
+        let openVariant = 'scatter';
+        const textPositions = new Float32Array(particleCount * 3);
+
+        const particleContainer = new THREE.Group();
+        const boxPositions = new Float32Array(particleCount * 3);
+        const treePositions = new Float32Array(particleCount * 3);
+        const explodePositions = new Float32Array(particleCount * 3);
+        const particleOriginalColors = [];
+        const treeColors = [];
+
+        // 带作者的名言
+        const textOptions = [
+            { quote: "Women are the largest untapped reservoir of talent in the world.", author: "— Hillary Clinton" },
+            { quote: "There is no limit to what we, as women, can accomplish.", author: "— Michelle Obama" },
+            { quote: "A woman is the full circle. Within her is the power to create, nurture and transform.", author: "— Diane Mariechild" }
+        ];
+
+        // 手动切换模式函数
+        function toggleMode(targetMode) {
+            if (mode === targetMode) return;
+
+            const lOpen = document.getElementById('btn-open');
+            const lClose = document.getElementById('btn-close');
+
+            // 切换时重置视角到初始位置
+            targetRotationX = 0;
+            targetRotationY = 0;
+
+            if (targetMode === 'open') {
+                mode = 'open';
+                openCount++;
+                // 每第 5 次出现 MISS GAO 文字，其余为散开贺卡
+                openVariant = (openCount % 5 === 0) ? 'text' : 'scatter';
+                lOpen.classList.add('active-open');
+                lClose.classList.remove('active-close');
+                if (openVariant === 'scatter') {
+                    const opt = textOptions[Math.floor(Math.random() * textOptions.length)];
+                    if (!hasOpenedOnce) {
+                        updateCardText("To the queen 👑 — Happy Women's Day!");
+                        hasOpenedOnce = true;
+                    } else {
+                        updateCardText(opt.quote, opt.author);
+                    }
+                }
+            } else {
+                mode = 'close';
+                morphTarget = (openCount > 0 && openCount % 3 === 0) ? 'tree' : 'box';
+                lClose.classList.add('active-close');
+                lOpen.classList.remove('active-open');
+            }
+        }
+
+        function initThree() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 30, isMobile ? 220 : 180);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            // 鼠标拖拽旋转
+            renderer.domElement.addEventListener('mousedown', (e) => {
+                isDragging = true; lastDragX = e.clientX; lastDragY = e.clientY;
+            });
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                targetRotationY += (e.clientX - lastDragX) / window.innerWidth * Math.PI * 3;
+                targetRotationX += (e.clientY - lastDragY) / window.innerHeight * Math.PI * 3;
+                lastDragX = e.clientX; lastDragY = e.clientY;
+            });
+            window.addEventListener('mouseup', () => { isDragging = false; });
+
+            // 触摸拖拽旋转
+            renderer.domElement.addEventListener('touchstart', (e) => {
+                isDragging = true; lastDragX = e.touches[0].clientX; lastDragY = e.touches[0].clientY;
+            }, { passive: true });
+            renderer.domElement.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                e.preventDefault();
+                targetRotationY += (e.touches[0].clientX - lastDragX) / window.innerWidth * Math.PI * 3;
+                targetRotationX += (e.touches[0].clientY - lastDragY) / window.innerHeight * Math.PI * 3;
+                lastDragX = e.touches[0].clientX; lastDragY = e.touches[0].clientY;
+            }, { passive: false });
+            renderer.domElement.addEventListener('touchend', () => { isDragging = false; });
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const pLight1 = new THREE.PointLight(0xffd700, 1.2, 500);
+            pLight1.position.set(100, 150, 100);
+            scene.add(pLight1);
+
+            const matBox = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.7, roughness: 0.2 });
+            const matRibbon = new THREE.MeshStandardMaterial({ color: 0xff4500, metalness: 0.6, roughness: 0.3 });
+            const boxGeo = new THREE.BoxGeometry(1.6, 1.6, 1.6);
+            const sphereGeo = new THREE.IcosahedronGeometry(1.0, 0);
+
+            const gap = 2.4;
+            const offsetXZ = (sideSize * gap) / 2;  // 宽/深半尺寸
+            const offsetY  = offsetXZ * (2 / 3);    // 高度 = 宽度 × 2/3
+            const ribbonW  = offsetXZ * 0.18;        // 包装带宽度（基于宽度）
+            let pIdx = 0;
+
+            for (let face = 0; face < 6; face++) {
+                for (let i = 0; i < sideSize; i++) {
+                    for (let j = 0; j < sideSize; j++) {
+                        // u/v 在 [-offsetXZ, +offsetXZ] 范围内均匀分布
+                        let u = i * gap - offsetXZ + (gap/2);
+                        let v = j * gap - offsetXZ + (gap/2);
+                        let x, y, z;
+                        // 前/后面：x=u, y 压缩至 2/3（高），z=±offsetXZ
+                        if      (face === 0) { x = u; y = v * (2/3); z =  offsetXZ; }
+                        else if (face === 1) { x = u; y = v * (2/3); z = -offsetXZ; }
+                        // 左/右面：x=±offsetXZ, y 压缩至 2/3, z=v
+                        else if (face === 2) { x =  offsetXZ; y = u * (2/3); z = v; }
+                        else if (face === 3) { x = -offsetXZ; y = u * (2/3); z = v; }
+                        // 顶/底面：y=±offsetY（扁高），x=u, z=v
+                        else if (face === 4) { x = u; y =  offsetY; z = v; }
+                        else                 { x = u; y = -offsetY; z = v; }
+
+                        boxPositions[pIdx * 3] = x;
+                        boxPositions[pIdx * 3 + 1] = y;
+                        boxPositions[pIdx * 3 + 2] = z;
+
+                        // 六个面均使用十字包装带：u方向条带 OR v方向条带
+                        let isRibbon = Math.abs(u) < ribbonW || Math.abs(v) < ribbonW;
+                        particleOriginalColors.push(isRibbon ? 0xff4500 : 0xffd700);
+                        treeColors.push(Math.random() > 0.9 ? 0xff0000 : 0x228b22);
+
+                        const mesh = new THREE.Mesh(Math.random() > 0.8 ? sphereGeo : boxGeo, isRibbon ? matRibbon : matBox);
+                        mesh.position.set(x, y, z);
+                        particleContainer.add(mesh);
+                        particles.push(mesh);
+                        
+                        explodePositions[pIdx * 3] = (Math.random() - 0.5) * 600;
+                        explodePositions[pIdx * 3 + 1] = (Math.random() - 0.5) * 600;
+                        explodePositions[pIdx * 3 + 2] = (Math.random() - 0.5) * 600;
+                        pIdx++;
+                    }
+                }
+            }
+
+            for (let i = 0; i < bowParticlesCount; i++) {
+                let t = Math.random() * Math.PI * 2;
+                let A = 32;
+                let lx = (A * Math.cos(t)) / (1 + Math.sin(t) * Math.sin(t));
+                let ly = (A * Math.sin(t) * Math.cos(t)) / (1 + Math.sin(t) * Math.sin(t));
+                // 前半段：X轴方向蝴蝶结；后半段：Z轴方向蝴蝶结（形成十字）
+                let bx, by, bz;
+                if (i < bowParticlesCount / 2) {
+                    bx = lx + (Math.random()-0.5)*6;
+                    by = offsetY + 4 + Math.abs(ly) * 1.3 + (Math.random()-0.5)*6;
+                    bz = (Math.random()-0.5)*8;
+                } else {
+                    bz = lx + (Math.random()-0.5)*6;
+                    by = offsetY + 4 + Math.abs(ly) * 1.3 + (Math.random()-0.5)*6;
+                    bx = (Math.random()-0.5)*8;
+                }
+                
+                boxPositions[pIdx * 3] = bx;
+                boxPositions[pIdx * 3 + 1] = by;
+                boxPositions[pIdx * 3 + 2] = bz;
+                particleOriginalColors.push(0xff4500);
+                treeColors.push(0xffd700);
+
+                const mesh = new THREE.Mesh(sphereGeo, matRibbon);
+                mesh.position.set(bx, by, bz);
+                particleContainer.add(mesh);
+                particles.push(mesh);
+                
+                explodePositions[pIdx * 3] = (Math.random() - 0.5) * 600;
+                explodePositions[pIdx * 3 + 1] = (Math.random() - 0.5) * 600;
+                explodePositions[pIdx * 3 + 2] = (Math.random() - 0.5) * 600;
+                pIdx++;
+            }
+
+            calculateTreePositions();
+            scene.add(particleContainer);
+
+            // 圣诞树星顶发光点，随 particleContainer 旋转
+            treeStarLight = new THREE.PointLight(0xffd700, 0, 200);
+            treeStarLight.position.set(0, 55, 0);
+            particleContainer.add(treeStarLight);
+
+            createMagicCard();
+            animate();
+        }
+
+        function calculateTreePositions() {
+            const trunkCount = Math.round(particleCount * 0.06);
+            const starCount  = Math.round(particleCount * 0.05);
+            const bodyCount  = particleCount - trunkCount - starCount;
+            let p = 0;
+
+            // --- 树体：平滑锥形，外缘聚集，带树枝下垂 ---
+            for (let i = 0; i < bodyCount; i++) {
+                const h = Math.random() * 108;           // 0=底, 108=顶
+                const rMax = (108 - h) * 0.82;           // 锥形收窄
+                const r = rMax * Math.pow(Math.random(), 0.55); // 偏向外缘
+                const droop = (r / Math.max(rMax, 1)) * 13;     // 外缘下垂
+                const angle = Math.random() * Math.PI * 2;
+                treePositions[p * 3]     = Math.cos(angle) * r;
+                treePositions[p * 3 + 1] = h - 55 - droop;
+                treePositions[p * 3 + 2] = Math.sin(angle) * r;
+                // 绿色主体 + 金色彩灯12% + 红色彩灯8%
+                const rnd = Math.random();
+                if      (rnd < 0.12) treeColors[p] = 0xffd700; // 金色彩灯
+                else if (rnd < 0.20) treeColors[p] = 0xff2020; // 红色彩灯
+                else if (rnd < 0.58) treeColors[p] = 0x1a6e1a; // 深绿
+                else                 treeColors[p] = 0x2eb82e; // 亮绿
+                p++;
+            }
+
+            // --- 树干：猪肝色 ---
+            const trunkEnd = p + trunkCount;
+            while (p < trunkEnd) {
+                const h = Math.random() * 24;
+                const r = Math.random() * 7;
+                const angle = Math.random() * Math.PI * 2;
+                treePositions[p * 3]     = Math.cos(angle) * r;
+                treePositions[p * 3 + 1] = h - 79;
+                treePositions[p * 3 + 2] = Math.sin(angle) * r;
+                treeColors[p] = Math.random() > 0.5 ? 0x7b2323 : 0x5c1a1a; // 猪肝色
+                p++;
+            }
+
+            // --- 星顶：金色，集中在顶端，随 PointLight 发光 ---
+            while (p < particleCount) {
+                const angle = Math.random() * Math.PI * 2;
+                const r = Math.random() * 9;
+                treePositions[p * 3]     = Math.cos(angle) * r;
+                treePositions[p * 3 + 1] = 56 + Math.random() * 10;  // 紧贴 treeStarLight y=55
+                treePositions[p * 3 + 2] = Math.sin(angle) * r;
+                treeColors[p] = Math.random() > 0.4 ? 0xfff59d : 0xffd700; // 淡黄/金
+                p++;
+            }
+        }
+
+        function generateTextFormation() {
+            // 用 Canvas 渲染 "MISS GAO"，采样像素坐标作为粒子目标位置
+            const cvs = document.createElement('canvas');
+            cvs.width = 720; cvs.height = 200;
+            const ctx2 = cvs.getContext('2d');
+            ctx2.fillStyle = '#ffffff';
+            ctx2.font = 'bold 140px serif';
+            ctx2.textAlign = 'center';
+            ctx2.textBaseline = 'middle';
+            ctx2.fillText('MISS GAO', 360, 100);
+
+            const imgData = ctx2.getImageData(0, 0, 720, 200);
+            const textPixels = [];
+            for (let y = 0; y < 200; y += 2) {
+                for (let x = 0; x < 720; x += 2) {
+                    if (imgData.data[(y * 720 + x) * 4 + 3] > 128) {
+                        textPixels.push([(x - 360) * 0.30, -(y - 100) * 0.30]);
+                    }
+                }
+            }
+            // 随机打乱，使粒子从四面八方汇聚，而不是逐行填充
+            for (let i = textPixels.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [textPixels[i], textPixels[j]] = [textPixels[j], textPixels[i]];
+            }
+            for (let i = 0; i < particleCount; i++) {
+                if (i < textPixels.length) {
+                    textPositions[i * 3]     = textPixels[i][0];
+                    textPositions[i * 3 + 1] = textPixels[i][1] + 18; // 悬浮高度
+                    textPositions[i * 3 + 2] = (Math.random() - 0.5) * 12;
+                } else {
+                    // 超出字形的粒子向四面八方远距离炸散
+                    const angle = Math.random() * Math.PI * 2;
+                    const elevation = (Math.random() - 0.5) * Math.PI;
+                    const dist = 300 + Math.random() * 400;
+                    textPositions[i * 3]     = Math.cos(angle) * Math.cos(elevation) * dist;
+                    textPositions[i * 3 + 1] = Math.sin(elevation) * dist + 18;
+                    textPositions[i * 3 + 2] = Math.sin(angle) * Math.cos(elevation) * dist;
+                }
+            }
+        }
+
+        function createMagicCard() {
+            const cardGeo = new THREE.PlaneGeometry(isMobile ? 70 : 90, isMobile ? 46 : 60);
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024; canvas.height = 680;
+            cardCtx = canvas.getContext('2d');
+            cardTex = new THREE.CanvasTexture(canvas);
+            const cardMat = new THREE.MeshStandardMaterial({ map: cardTex, transparent: true, opacity: 0, side: THREE.DoubleSide });
+            magicCard = new THREE.Mesh(cardGeo, cardMat);
+            magicCard.rotation.x = -Math.PI / 2; 
+            scene.add(magicCard);
+        }
+
+        function updateCardText(text, author) {
+            const w = cardCtx.canvas.width; const h = cardCtx.canvas.height;
+            const grad = cardCtx.createRadialGradient(w/2, h/2, 0, w/2, h/2, w);
+            grad.addColorStop(0, '#ffffff'); grad.addColorStop(1, '#f0f0f0');
+            cardCtx.fillStyle = grad; cardCtx.fillRect(0, 0, w, h);
+            cardCtx.strokeStyle = '#d4af37'; cardCtx.lineWidth = 12; cardCtx.strokeRect(30, 30, w - 60, h - 60);
+
+            // 名言正文
+            cardCtx.fillStyle = '#a60033';
+            cardCtx.font = "bold 52px 'Georgia', serif";
+            cardCtx.textAlign = 'center'; cardCtx.textBaseline = 'middle';
+            const words = text.split(' '); const lines = []; let currentLine = words[0];
+            for (let i = 1; i < words.length; i++) {
+                if (cardCtx.measureText(currentLine + " " + words[i]).width < w - 160) currentLine += " " + words[i];
+                else { lines.push(currentLine); currentLine = words[i]; }
+            }
+            lines.push(currentLine);
+            const lineH = 74;
+            const totalH = lines.length * lineH;
+            // 有作者时整体上移，留出底部空间
+            const offsetY = author ? -36 : 0;
+            const startY = h / 2 - totalH / 2 + lineH / 2 + offsetY;
+            lines.forEach((line, i) => cardCtx.fillText(line, w / 2, startY + i * lineH));
+
+            // 作者（小字斜体，深灰）
+            if (author) {
+                cardCtx.fillStyle = '#555555';
+                cardCtx.font = "italic 36px 'Georgia', serif";
+                cardCtx.fillText(author, w / 2, startY + totalH + 24);
+            }
+            cardTex.needsUpdate = true;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            // 平滑跟随目标旋转角，不再自动旋转
+            particleContainer.rotation.x += (targetRotationX - particleContainer.rotation.x) * 0.08;
+            particleContainer.rotation.y += (targetRotationY - particleContainer.rotation.y) * 0.08;
+
+            particles.forEach((p, i) => {
+                if (mode === 'open') {
+                    let tx, ty, tz;
+                    if (openVariant === 'text') {
+                        // 粒子汇聚成 MISS GAO 文字
+                        tx = textPositions[i * 3];
+                        ty = textPositions[i * 3 + 1];
+                        tz = textPositions[i * 3 + 2];
+                        p.position.x += (tx - p.position.x) * 0.06;
+                        p.position.y += (ty - p.position.y) * 0.06;
+                        p.position.z += (tz - p.position.z) * 0.06;
+                        p.material.color.lerp(new THREE.Color(0x9b30ff), 0.04);
+                    } else {
+                        // 爆炸散开
+                        tx = explodePositions[i * 3];
+                        ty = explodePositions[i * 3 + 1];
+                        tz = explodePositions[i * 3 + 2];
+                        p.position.x += (tx - p.position.x) * 0.05;
+                        p.position.y += (ty - p.position.y) * 0.05;
+                        p.position.z += (tz - p.position.z) * 0.05;
+                    }
+                } else {
+                    let tx, ty, tz, targetCol;
+                    if (morphTarget === 'tree') {
+                        tx = treePositions[i * 3]; ty = treePositions[i * 3 + 1]; tz = treePositions[i * 3 + 2];
+                        targetCol = treeColors[i];
+                    } else {
+                        tx = boxPositions[i * 3]; ty = boxPositions[i * 3 + 1]; tz = boxPositions[i * 3 + 2];
+                        targetCol = particleOriginalColors[i];
+                    }
+                    p.position.x += (tx - p.position.x) * 0.12;
+                    p.position.y += (ty - p.position.y) * 0.12;
+                    p.position.z += (tz - p.position.z) * 0.12;
+                    p.material.color.lerp(new THREE.Color(targetCol), 0.05);
+                }
+            });
+
+            if (mode === 'open') {
+                if (openVariant === 'scatter') {
+                    // 散开模式：显示贺卡
+                    magicCard.material.opacity = Math.min(magicCard.material.opacity + 0.04, 1);
+                    magicCard.rotation.x += (0 - magicCard.rotation.x) * 0.08;
+                    magicCard.position.y = 20 + Math.sin(Date.now() * 0.002) * 5;
+                } else {
+                    // 文字模式：隐藏贺卡
+                    magicCard.material.opacity = Math.max(magicCard.material.opacity - 0.1, 0);
+                    magicCard.rotation.x += (-Math.PI/2 - magicCard.rotation.x) * 0.1;
+                }
+            } else {
+                magicCard.material.opacity = Math.max(magicCard.material.opacity - 0.1, 0);
+                magicCard.rotation.x += (-Math.PI/2 - magicCard.rotation.x) * 0.1;
+            }
+
+            // 圣诞树星顶光：tree 模式下渐亮，并轻微闪烁
+            if (treeStarLight) {
+                const targetIntensity = (morphTarget === 'tree' && mode !== 'open')
+                    ? 2.5 + Math.sin(Date.now() * 0.003) * 0.4
+                    : 0;
+                treeStarLight.intensity += (targetIntensity - treeStarLight.intensity) * 0.05;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        const videoElement = document.getElementById('webcam-raw');
+        const canvasElement = document.getElementById('hand-canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+
+        function onResults(results) {
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                const palm = landmarks[0];
+
+                // 捏合检测：大拇指尖(4) 与 食指尖(8) 的距离
+                const thumbTip = landmarks[4];
+                const indexTip = landmarks[8];
+                const pinchDist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
+                const nowPinching = pinchDist < 0.06;
+
+                if (nowPinching) {
+                    // 捏合状态：用手掌位移驱动旋转
+                    if (isPinching && lastHandX !== null) {
+                        const dx = palm.x - lastHandX;
+                        const dy = palm.y - lastHandY;
+                        targetRotationY += dx * Math.PI * 4;
+                        targetRotationX += dy * Math.PI * 4;
+                    }
+                    isPinching = true;
+                } else {
+                    isPinching = false;
+                    // 非捏合时才判断开合手势
+                    const fingers = [8, 12, 16, 20];
+                    let dist = 0;
+                    fingers.forEach(id => dist += Math.hypot(landmarks[id].x - palm.x, landmarks[id].y - palm.y));
+                    const score = dist / 4;
+                    if (score > 0.45) toggleMode('open');
+                    else if (score < 0.2) toggleMode('close');
+                }
+
+                lastHandX = palm.x;
+                lastHandY = palm.y;
+
+                // 绘制骨架预览
+                if (window.drawConnectors) {
+                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: nowPinching ? '#00ffcc' : '#ffd700', lineWidth: 1.5});
+                }
+            } else {
+                isPinching = false;
+                lastHandX = null;
+                lastHandY = null;
+            }
+            canvasCtx.restore();
+        }
+
+        function startApp() {
+            const HandsClass = getHandsClass();
+            const CameraClass = getCameraClass();
+
+            // 基础初始化始终运行
+            initThree();
+            generateTextFormation();
+            document.getElementById('loader').style.opacity = '0';
+            setTimeout(() => document.getElementById('loader').remove(), 1000);
+
+            // 尝试加载 MediaPipe，如果失败则仅使用按钮交互
+            if (HandsClass && CameraClass) {
+                try {
+                    const hands = new HandsClass({
+                        locateFile: (file) => `https://unpkg.com/@mediapipe/hands/${file}`
+                    });
+                    
+                    hands.setOptions({ 
+                        maxNumHands: 1, 
+                        modelComplexity: isMobile ? 0 : 1, 
+                        minDetectionConfidence: 0.5, 
+                        minTrackingConfidence: 0.5, 
+                        selfieMode: true 
+                    });
+                    
+                    hands.onResults(onResults);
+
+                    const cam = new CameraClass(videoElement, { 
+                        onFrame: async () => { await hands.send({image: videoElement}); }, 
+                        width: isMobile ? 320 : 640, 
+                        height: isMobile ? 240 : 480 
+                    });
+
+                    cam.start().catch(err => {
+                        console.warn("Camera failed, fallback to touch controls:", err);
+                        document.getElementById('monitor-window').style.display = 'none';
+                    });
+                } catch (e) {
+                    console.error("MediaPipe initialization error:", e);
+                }
+            } else {
+                console.log("MediaPipe not detected, using manual mode only.");
+                document.getElementById('monitor-window').style.display = 'none';
+            }
+        }
+
+        window.addEventListener('load', startApp);
+
+        window.addEventListener('resize', () => {
+            if (camera) {
+                camera.aspect = window.innerWidth / window.innerHeight; 
+                camera.updateProjectionMatrix();
+                camera.position.z = isMobile ? 220 : 180;
+            }
+            if (renderer) renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
