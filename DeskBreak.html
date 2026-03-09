@@ -32,6 +32,7 @@
             opacity: 1;
             transition: opacity 0.4s;
             overflow-y: auto;
+            z-index: 10;   /* above glass-overlay (z-6) */
         }
         .screen.hidden { opacity: 0; pointer-events: none; }
 
@@ -77,10 +78,48 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.15s, background 0.2s, border-color 0.2s, box-shadow 0.2s;
         }
+        .ex-card:hover  { transform: translateY(-3px); background: rgba(255,255,255,0.09); }
+        .ex-card:active { transform: translateY(0px); }
         .ex-card-icon { font-size: 1.6rem; }
         .ex-card-name { font-size: 0.85rem; font-weight: 700; }
         .ex-card-reps { font-size: 0.72rem; color: rgba(255,255,255,0.45); }
+        .ex-card-hint { font-size: 0.62rem; color: rgba(255,255,255,0.25); margin-top: 2px; letter-spacing: 0.02em; }
+        .btn-combo {
+            width: 100%;
+            max-width: 400px;
+            padding: 15px 0;
+            border-radius: 50px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.85);
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: 0.04em;
+            transition: background 0.2s, border-color 0.2s, transform 0.15s;
+        }
+        .btn-combo:hover  { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.35); }
+        .btn-combo:active { transform: scale(0.97); }
+        .welcome-divider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            max-width: 400px;
+            color: rgba(255,255,255,0.2);
+            font-size: 0.72rem;
+        }
+        .welcome-divider::before,
+        .welcome-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255,255,255,0.1);
+        }
         .btn-start {
             padding: 16px 48px;
             border-radius: 50px;
@@ -177,12 +216,71 @@
             border-radius: 20px;
             transition: all 0.3s;
         }
-        .hand-ok   { background: rgba(76,175,80,0.2); color: #4caf50; border: 1px solid rgba(76,175,80,0.4); }
+        .hand-ok   { background: rgba(76,175,80,0.2);  color: #4caf50; border: 1px solid rgba(76,175,80,0.4); }
+        .hand-half { background: rgba(255,193,7,0.15); color: #ffc107; border: 1px solid rgba(255,193,7,0.35); }
         .hand-no   { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); border: 1px solid rgba(255,255,255,0.1); }
         .next-preview {
             font-size: 0.75rem;
             color: rgba(255,255,255,0.35);
             text-align: center;
+        }
+
+        /* ── GLASS EXERCISE ── */
+        @keyframes anim-wipe { 0%,100%{transform:translateX(-8px)} 50%{transform:translateX(8px)} }
+        .anim-wipe { animation: anim-wipe 1.2s ease-in-out infinite; }
+
+        #glass-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 6;            /* between trail-canvas(5) and screens(10) */
+            display: none;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        #rain-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+        #fog-canvas  { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
+        .win-border {
+            position: absolute; inset: 0; z-index: 2;
+            border: 18px solid #4a2b06;
+            box-shadow: inset 0 0 0 5px #6b3f0d,
+                        inset 0 0 60px rgba(0,0,0,0.5),
+                        0 0 0 4px #2e1a04;
+        }
+        .win-bar-v {
+            position: absolute; left: calc(50% - 8px); top: 0; bottom: 0;
+            width: 16px; background: #4a2b06; z-index: 2;
+            box-shadow: 3px 0 8px rgba(0,0,0,0.5), -3px 0 8px rgba(0,0,0,0.5);
+        }
+        .win-bar-h {
+            position: absolute; top: calc(50% - 8px); left: 0; right: 0;
+            height: 16px; background: #4a2b06; z-index: 2;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.5), 0 -3px 8px rgba(0,0,0,0.5);
+        }
+        /* subtle glass gloss on each pane */
+        .win-gloss {
+            position: absolute; z-index: 3;
+            background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .win-gloss-tl { top: 18px; left: 18px; right: calc(50% + 8px); bottom: calc(50% + 8px); }
+        .win-gloss-tr { top: 18px; left: calc(50% + 8px); right: 18px; bottom: calc(50% + 8px); }
+        .win-gloss-bl { top: calc(50% + 8px); left: 18px; right: calc(50% + 8px); bottom: 18px; }
+        .win-gloss-br { top: calc(50% + 8px); left: calc(50% + 8px); right: 18px; bottom: 18px; }
+
+        #rag-cursor {
+            position: fixed;
+            width: 88px; height: 88px;
+            border-radius: 50%;
+            background: radial-gradient(circle,
+                rgba(255,255,255,0.28) 0%,
+                rgba(220,235,255,0.12) 55%,
+                transparent 100%);
+            border: 2px dashed rgba(255,255,255,0.55);
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            display: none;
+            z-index: 45;
+            box-shadow: 0 0 12px rgba(100,181,246,0.3);
         }
 
         /* ── REST ── */
@@ -293,28 +391,42 @@
     <p class="app-title">DeskBreak</p>
     <p class="app-subtitle">上班族放松操 · 手势计数</p>
     <div class="exercise-grid">
-        <div class="ex-card" style="border-color:rgba(255,107,53,0.35)">
+        <div class="ex-card" style="border-color:rgba(255,107,53,0.35)" onclick="startSingle(0)">
             <span class="ex-card-icon">✊</span>
             <span class="ex-card-name" style="color:#ff6b35">握拳松开</span>
             <span class="ex-card-reps">× 15 次</span>
+            <span class="ex-card-hint">点击单独练习</span>
         </div>
-        <div class="ex-card" style="border-color:rgba(124,77,255,0.35)">
+        <div class="ex-card" style="border-color:rgba(124,77,255,0.35)" onclick="startSingle(1)">
             <span class="ex-card-icon">🌀</span>
             <span class="ex-card-name" style="color:#7c4dff">手腕绕圈</span>
             <span class="ex-card-reps">× 10 次</span>
+            <span class="ex-card-hint">点击单独练习</span>
         </div>
-        <div class="ex-card" style="border-color:rgba(0,188,212,0.35)">
+        <div class="ex-card" style="border-color:rgba(0,188,212,0.35)" onclick="startSingle(2)">
             <span class="ex-card-icon">🙌</span>
             <span class="ex-card-name" style="color:#00bcd4">举手过头</span>
             <span class="ex-card-reps">× 12 次</span>
+            <span class="ex-card-hint">点击单独练习</span>
         </div>
-        <div class="ex-card" style="border-color:rgba(76,175,80,0.35)">
+        <div class="ex-card" style="border-color:rgba(76,175,80,0.35)" onclick="startSingle(3)">
             <span class="ex-card-icon">🖐</span>
             <span class="ex-card-name" style="color:#4caf50">五指伸展</span>
             <span class="ex-card-reps">× 20 次</span>
+            <span class="ex-card-hint">点击单独练习</span>
+        </div>
+        <!-- 擦玻璃：宽卡片横跨两列 -->
+        <div class="ex-card" style="border-color:rgba(100,181,246,0.4); grid-column:1/-1; flex-direction:row; align-items:center; gap:14px" onclick="startSingle(4)">
+            <span class="ex-card-icon" style="font-size:2rem;flex-shrink:0">🪟</span>
+            <div style="flex:1">
+                <div class="ex-card-name" style="color:#64b5f6">擦玻璃</div>
+                <div class="ex-card-reps">× 10 次 &nbsp;·&nbsp; 握拳左右擦拭</div>
+            </div>
+            <span class="ex-card-hint" style="margin:0;flex-shrink:0">点击单独练习 →</span>
         </div>
     </div>
-    <button class="btn-start" onclick="startSession()">开始锻炼</button>
+    <div class="welcome-divider">或</div>
+    <button class="btn-combo" onclick="startSession()">🏋️ 组合训练 — 全部 5 项</button>
 </div>
 
 <!-- EXERCISE -->
@@ -353,12 +465,12 @@
 
 <!-- COMPLETE -->
 <div id="screen-complete" class="screen hidden">
-    <div class="complete-emoji">🎉</div>
-    <div class="complete-title">完成！太棒了</div>
+    <div class="complete-emoji" id="complete-emoji">🎉</div>
+    <div class="complete-title" id="complete-title">完成！太棒了</div>
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-val" id="stat-reps">0</div>
-            <div class="stat-lbl">总次数</div>
+            <div class="stat-lbl">完成次数</div>
         </div>
         <div class="stat-card">
             <div class="stat-val" id="stat-exs">4</div>
@@ -370,15 +482,32 @@
         </div>
         <div class="stat-card">
             <div class="stat-val">🏅</div>
-            <div class="stat-lbl">今日连续</div>
+            <div class="stat-lbl">加油继续</div>
         </div>
     </div>
-    <button class="btn-start" onclick="restartSession()">再来一次</button>
+    <button class="btn-start" onclick="restartSession()">再练一次</button>
+    <button class="btn-combo" style="margin-top:4px" onclick="showScreen('screen-welcome')">返回选择</button>
 </div>
 
 <!-- CANVASES -->
 <canvas id="particle-canvas"></canvas>
 <canvas id="trail-canvas"></canvas>
+
+<!-- GLASS OVERLAY (rain scene + fog, z-index:6, between trail and screens) -->
+<div id="glass-overlay">
+    <canvas id="rain-canvas"></canvas>
+    <canvas id="fog-canvas"></canvas>
+    <div class="win-border"></div>
+    <div class="win-bar-v"></div>
+    <div class="win-bar-h"></div>
+    <div class="win-gloss win-gloss-tl"></div>
+    <div class="win-gloss win-gloss-tr"></div>
+    <div class="win-gloss win-gloss-bl"></div>
+    <div class="win-gloss win-gloss-br"></div>
+</div>
+
+<!-- RAG CURSOR (hand cloth indicator, z-index:45) -->
+<div id="rag-cursor"></div>
 
 <!-- MONITOR -->
 <div id="monitor-window">
@@ -397,6 +526,7 @@ const EXERCISES = [
     { id: 'hand_circle',  name: '手腕绕圈',   nameEn: 'Wrist Circles',      icon: '🌀', iconAnim: 'anim-circle',  color: '#7c4dff', reps: 10, tip: '用手腕画大圆圈' },
     { id: 'overhead',     name: '举手过头',   nameEn: 'Overhead Reach',     icon: '🙌', iconAnim: 'anim-overhead',color: '#00bcd4', reps: 12, tip: '举手超过头顶后放下' },
     { id: 'finger_spread',name: '五指伸展',   nameEn: 'Finger Spread',      icon: '🖐', iconAnim: 'anim-spread',  color: '#4caf50', reps: 20, tip: '五指张开后合拢' },
+    { id: 'wipe_glass',   name: '擦玻璃',    nameEn: 'Wipe the Glass',     icon: '🪟', iconAnim: 'anim-wipe',    color: '#64b5f6', reps: 10, tip: '握紧拳头，左右擦拭玻璃' },
 ];
 const CIRCUMFERENCE = 515;
 const REST_DURATION = 20;
@@ -404,16 +534,22 @@ const REST_DURATION = 20;
 /* ═══════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════ */
-let currentScreen = 'loading';
-let currentExIdx  = 0;
-let currentReps   = 0;
-let detector      = null;
-let restTimerId   = null;
-let restRemaining = REST_DURATION;
-let sessionStart  = null;
-let handDetected  = false;
-let audioCtx      = null;
-let trailPoints   = [];
+let currentScreen   = 'loading';
+let currentExIdx    = 0;
+let currentReps     = 0;
+let detector        = null;
+let restTimerId     = null;
+let restRemaining   = REST_DURATION;
+let sessionStart    = null;
+let audioCtx        = null;
+let trailPoints     = [];
+
+// 双手举头状态机
+let overheadState    = 'idle'; // 'idle' | 'both_high'
+let overheadCooldown = 0;
+
+// 训练模式
+let singleMode = false; // true = 单项练习，false = 组合训练
 
 /* ═══════════════════════════════════════════════
    EXERCISE DETECTOR
@@ -637,6 +773,230 @@ function playBleep() {
 }
 
 /* ═══════════════════════════════════════════════
+   GLASS EXERCISE — RAIN + FOG + WIPE
+═══════════════════════════════════════════════ */
+const RAG_RADIUS    = 55;   // fog erase radius (px)
+const REFOG_DELAY   = 3500; // ms between gentle re-fog passes
+
+let rainCtx         = null;
+let fogCtx          = null;
+let rainDrops       = [];
+let glassBuildings  = [];   // pre-generated cityscape
+let rainAnimId      = null;
+let lastRefogTime   = 0;
+let glassReady      = false;
+
+// Sweep detection state
+let wipeSwipeState  = 'none'; // 'none'|'at_left'|'at_right'
+
+function initGlassExercise() {
+    const rc = document.getElementById('rain-canvas');
+    const fc = document.getElementById('fog-canvas');
+    rc.width = fc.width  = window.innerWidth;
+    rc.height = fc.height = window.innerHeight;
+    rainCtx = rc.getContext('2d');
+    fogCtx  = fc.getContext('2d');
+
+    // Pre-generate stable city silhouette
+    glassBuildings = [];
+    const W = rc.width, H = rc.height;
+    let bx = 0;
+    while (bx < W) {
+        const bw  = W * (0.06 + Math.random() * 0.11);
+        const top = H * (0.38 + Math.random() * 0.30);
+        const wins = [];
+        for (let wy = top + 10; wy < H - 12; wy += 20) {
+            for (let wx = bx + 5; wx < bx + bw - 5; wx += 15) {
+                wins.push({ x: wx, y: wy, lit: Math.random() > 0.35 });
+            }
+        }
+        glassBuildings.push({ x: bx, top, width: bw, wins });
+        bx += bw + Math.random() * 4;
+    }
+    applyFog(1.0);
+    glassReady = true;
+}
+
+function applyFog(alpha) {
+    if (!fogCtx) return;
+    const W = fogCtx.canvas.width, H = fogCtx.canvas.height;
+    fogCtx.globalCompositeOperation = 'source-over';
+
+    // Base condensation layer
+    fogCtx.fillStyle = `rgba(185, 208, 228, ${alpha * 0.88})`;
+    fogCtx.fillRect(0, 0, W, H);
+
+    // Drip streaks for realism
+    if (alpha > 0.4) {
+        for (let i = 0; i < 22; i++) {
+            const sx = Math.random() * W;
+            const sy = Math.random() * H * 0.65;
+            const sh = 35 + Math.random() * 90;
+            const sw = 0.6 + Math.random() * 1.8;
+            const g  = fogCtx.createLinearGradient(sx, sy, sx, sy + sh);
+            g.addColorStop(0, `rgba(155,188,218,${alpha * 0.75})`);
+            g.addColorStop(0.7, `rgba(155,188,218,${alpha * 0.25})`);
+            g.addColorStop(1,  'rgba(155,188,218,0)');
+            fogCtx.fillStyle = g;
+            fogCtx.fillRect(sx, sy, sw, sh);
+        }
+    }
+}
+
+function wipeAt(screenX, screenY) {
+    if (!fogCtx) return;
+    fogCtx.globalCompositeOperation = 'destination-out';
+    const g = fogCtx.createRadialGradient(screenX, screenY, 0, screenX, screenY, RAG_RADIUS);
+    g.addColorStop(0,   'rgba(0,0,0,1)');
+    g.addColorStop(0.65,'rgba(0,0,0,0.9)');
+    g.addColorStop(1,   'rgba(0,0,0,0)');
+    fogCtx.fillStyle = g;
+    fogCtx.beginPath();
+    fogCtx.arc(screenX, screenY, RAG_RADIUS, 0, Math.PI * 2);
+    fogCtx.fill();
+    fogCtx.globalCompositeOperation = 'source-over';
+}
+
+function drawRainFrame() {
+    if (!rainCtx) return;
+    const W = rainCtx.canvas.width, H = rainCtx.canvas.height;
+
+    // Night sky gradient
+    const sky = rainCtx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#05111e');
+    sky.addColorStop(1, '#0b1e2f');
+    rainCtx.fillStyle = sky;
+    rainCtx.fillRect(0, 0, W, H);
+
+    // City silhouette
+    rainCtx.fillStyle = '#081420';
+    glassBuildings.forEach(b => {
+        rainCtx.fillRect(b.x, b.top, b.width, H - b.top);
+        b.wins.forEach(w => {
+            rainCtx.fillStyle = w.lit
+                ? `rgba(255,240,140,${0.25 + Math.random() * 0.15})`
+                : 'rgba(255,240,140,0.03)';
+            rainCtx.fillRect(w.x, w.y, 6, 9);
+        });
+        rainCtx.fillStyle = '#081420';
+    });
+
+    // Rain drops
+    rainDrops.forEach(d => {
+        rainCtx.beginPath();
+        rainCtx.moveTo(d.x, d.y);
+        rainCtx.lineTo(d.x - d.len * 0.18, d.y + d.len);
+        rainCtx.strokeStyle = `rgba(175,205,235,${d.op})`;
+        rainCtx.lineWidth = d.w;
+        rainCtx.stroke();
+        d.y += d.speed;
+        d.x -= d.speed * 0.12;
+        if (d.y > H + d.len) { d.y = -d.len; d.x = Math.random() * W; }
+        if (d.x < -10)        { d.x = W + 10; }
+    });
+}
+
+function animateGlass() {
+    if (EXERCISES[currentExIdx]?.id !== 'wipe_glass' || currentScreen !== 'exercise') {
+        rainAnimId = null;
+        return;
+    }
+    drawRainFrame();
+
+    // Periodic gentle re-fog so the exercise stays fresh
+    if (Date.now() - lastRefogTime > REFOG_DELAY) {
+        applyFog(0.22);
+        lastRefogTime = Date.now();
+    }
+    rainAnimId = requestAnimationFrame(animateGlass);
+}
+
+function showGlassOverlay() {
+    const ol = document.getElementById('glass-overlay');
+    ol.style.display = 'block';
+    wipeSwipeState = 'none';
+    lastRefogTime  = Date.now();
+
+    if (!glassReady) {
+        initGlassExercise();
+    } else {
+        // Resize if viewport changed
+        const rc = document.getElementById('rain-canvas');
+        const fc = document.getElementById('fog-canvas');
+        if (rc.width !== window.innerWidth || rc.height !== window.innerHeight) {
+            rc.width = fc.width  = window.innerWidth;
+            rc.height = fc.height = window.innerHeight;
+        }
+        applyFog(1.0); // re-fog for fresh session
+    }
+
+    // Spawn rain drops
+    rainDrops = [];
+    for (let i = 0; i < 130; i++) {
+        rainDrops.push({
+            x:     Math.random() * window.innerWidth,
+            y:     Math.random() * window.innerHeight,
+            len:   12 + Math.random() * 22,
+            speed: 6  + Math.random() * 10,
+            op:    0.3 + Math.random() * 0.5,
+            w:     0.7 + Math.random() * 1.2,
+        });
+    }
+    if (!rainAnimId) animateGlass();
+}
+
+function hideGlassOverlay() {
+    document.getElementById('glass-overlay').style.display = 'none';
+    document.getElementById('rag-cursor').style.display    = 'none';
+    if (rainAnimId) { cancelAnimationFrame(rainAnimId); rainAnimId = null; }
+}
+
+// Called from onResults when exercise is wipe_glass
+function processWipeGesture(lm) {
+    // Palm center = average of key palm landmarks
+    const palmIds = [0, 5, 9, 13, 17];
+    let px = 0, py = 0;
+    palmIds.forEach(id => { px += lm[id].x; py += lm[id].y; });
+    px /= palmIds.length;
+    py /= palmIds.length;
+
+    // Closed-fist detection
+    const palm = lm[0];
+    let dist = 0;
+    [8, 12, 16, 20].forEach(id => dist += Math.hypot(lm[id].x - palm.x, lm[id].y - palm.y));
+    const isFist = (dist / 4) < 0.20;
+
+    const rag = document.getElementById('rag-cursor');
+
+    // Convert normalised → screen coords (mirrored to match display)
+    const sx = (1 - px) * window.innerWidth;
+    const sy = py * window.innerHeight;
+
+    if (isFist) {
+        rag.style.display = 'block';
+        rag.style.left    = sx + 'px';
+        rag.style.top     = sy + 'px';
+        wipeAt(sx, sy);
+
+        // Sweep rep counting: left zone(x<0.25) ↔ right zone(x>0.75) — mirrored x
+        const mirX = 1 - px;
+        if (mirX < 0.25 && wipeSwipeState !== 'at_left') {
+            if (wipeSwipeState === 'at_right' && currentReps < EXERCISES[currentExIdx].reps) countRep();
+            wipeSwipeState = 'at_left';
+        } else if (mirX > 0.75 && wipeSwipeState !== 'at_right') {
+            if (wipeSwipeState === 'at_left' && currentReps < EXERCISES[currentExIdx].reps) countRep();
+            wipeSwipeState = 'at_right';
+        }
+    } else {
+        rag.style.display = 'none';
+    }
+
+    // Dynamic tip
+    document.getElementById('tip-box').textContent =
+        isFist ? '擦拭中… 左右扫动计一次' : '握紧拳头，左右擦拭玻璃';
+}
+
+/* ═══════════════════════════════════════════════
    SCREEN MANAGEMENT
 ═══════════════════════════════════════════════ */
 function showScreen(id) {
@@ -651,9 +1011,18 @@ function showScreen(id) {
 ═══════════════════════════════════════════════ */
 function startSession() {
     ensureAudio();
+    singleMode   = false;
     currentExIdx = 0;
     sessionStart = Date.now();
     loadExercise(0);
+}
+
+function startSingle(idx) {
+    ensureAudio();
+    singleMode   = true;
+    currentExIdx = idx;
+    sessionStart = Date.now();
+    loadExercise(idx);
 }
 
 function loadExercise(idx) {
@@ -662,14 +1031,18 @@ function loadExercise(idx) {
     detector = new ExerciseDetector(ex.id);
     clearTrail();
 
-    // Update dots
+    // Update dots（单项模式不显示）
     const dotsEl = document.getElementById('session-dots');
-    dotsEl.innerHTML = EXERCISES.map((_, i) => {
-        let cls = 'dot';
-        if (i < idx) cls += ' done';
-        if (i === idx) cls += ' current';
-        return `<div class="${cls}"></div>`;
-    }).join('');
+    if (singleMode) {
+        dotsEl.innerHTML = '';
+    } else {
+        dotsEl.innerHTML = EXERCISES.map((_, i) => {
+            let cls = 'dot';
+            if (i < idx) cls += ' done';
+            if (i === idx) cls += ' current';
+            return `<div class="${cls}"></div>`;
+        }).join('');
+    }
 
     // Update header
     const iconEl = document.getElementById('ex-icon');
@@ -689,13 +1062,29 @@ function loadExercise(idx) {
     // Tip
     document.getElementById('tip-box').textContent = ex.tip;
 
+    // 重置举手状态机
+    overheadState    = 'idle';
+    overheadCooldown = 0;
+
     // Skeleton color (via CSS variable)
     skeletonColor = ex.color;
 
-    // Next preview
-    const next = EXERCISES[idx + 1];
-    document.getElementById('next-preview').textContent = next
-        ? `下一个：${next.icon} ${next.name}` : '这是最后一项';
+    // 玻璃擦除 overlay
+    if (ex.id === 'wipe_glass') {
+        showGlassOverlay();
+    } else {
+        hideGlassOverlay();
+    }
+
+    // Next preview（单项模式不显示）
+    const nextPreviewEl = document.getElementById('next-preview');
+    if (singleMode) {
+        nextPreviewEl.textContent = '单项练习模式';
+    } else {
+        const next = EXERCISES[idx + 1];
+        nextPreviewEl.textContent = next
+            ? `下一个：${next.icon} ${next.name}` : '这是最后一项';
+    }
 
     showScreen('screen-exercise');
 }
@@ -729,6 +1118,11 @@ function manualCount() {
 }
 
 function advanceExercise() {
+    hideGlassOverlay();
+    if (singleMode) {
+        showComplete();
+        return;
+    }
     const nextIdx = currentExIdx + 1;
     if (nextIdx >= EXERCISES.length) {
         showComplete();
@@ -763,16 +1157,32 @@ function skipRest() {
 
 function showComplete() {
     const elapsed = Math.round((Date.now() - sessionStart) / 60000);
-    const total   = EXERCISES.reduce((s, e) => s + e.reps, 0);
-    document.getElementById('stat-reps').textContent = total;
-    document.getElementById('stat-exs').textContent  = EXERCISES.length;
-    document.getElementById('stat-mins').textContent  = Math.max(elapsed, 1);
+    const ex = EXERCISES[currentExIdx];
+
+    if (singleMode) {
+        document.getElementById('complete-emoji').textContent  = ex.icon;
+        document.getElementById('complete-title').textContent  = `${ex.name} · 完成！`;
+        document.getElementById('stat-reps').textContent = ex.reps;
+        document.getElementById('stat-exs').textContent  = 1;
+    } else {
+        document.getElementById('complete-emoji').textContent  = '🎉';
+        document.getElementById('complete-title').textContent  = '全程完成！太棒了';
+        document.getElementById('stat-reps').textContent = EXERCISES.reduce((s, e) => s + e.reps, 0);
+        document.getElementById('stat-exs').textContent  = EXERCISES.length;
+    }
+    document.getElementById('stat-mins').textContent = Math.max(elapsed, 1);
+    hideGlassOverlay();
     showScreen('screen-complete');
     clearTrail();
 }
 
 function restartSession() {
-    startSession();
+    // 单项模式：重新开始同一项；组合模式：从头开始
+    if (singleMode) {
+        startSingle(currentExIdx);
+    } else {
+        startSession();
+    }
 }
 
 /* ═══════════════════════════════════════════════
@@ -792,42 +1202,119 @@ window.addEventListener('resize', resizeHandCanvas);
 
 function onResults(results) {
     hCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
-    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        handDetected = true;
-        updateHandStatus(true);
-        const lm = results.multiHandLandmarks[0];
 
-        // Draw skeleton
+    const allLandmarks  = results.multiHandLandmarks  || [];
+    const allHandedness = results.multiHandedness      || [];
+
+    // 构建 { 'Left': landmarks, 'Right': landmarks }
+    const handsMap = {};
+    allLandmarks.forEach((lm, i) => {
+        const label = allHandedness[i]?.label; // "Left" | "Right"
+        if (label) handsMap[label] = lm;
+    });
+
+    // 绘制所有检测到的手的骨架
+    allLandmarks.forEach((lm) => {
         if (window.drawConnectors && window.drawLandmarks) {
             drawConnectors(hCtx, lm, window.HAND_CONNECTIONS,
                 { color: skeletonColor, lineWidth: 2 });
             drawLandmarks(hCtx, lm,
                 { color: skeletonColor, radius: 2 });
         }
+    });
 
-        // Detection
-        if (currentScreen === 'exercise' && detector) {
-            const ex = EXERCISES[currentExIdx];
-            if (ex.id === 'hand_circle') {
-                drawTrail(lm[0].x, lm[0].y, ex.color);
-            }
-            const counted = detector.detect(lm);
-            if (counted && currentReps < ex.reps) countRep();
+    // 更新手部状态指示器
+    const labels = allHandedness.map(h => h?.label).filter(Boolean);
+    updateHandStatus(allLandmarks.length, labels);
+
+    if (currentScreen !== 'exercise' || !detector) return;
+
+    const ex = EXERCISES[currentExIdx];
+
+    if (ex.id === 'overhead') {
+        // 举手过头：需要双手同时，单独处理
+        handleOverheadDetection(handsMap);
+    } else if (ex.id === 'wipe_glass') {
+        // 擦玻璃：取任意一只手，用掌心位置驱动抹布
+        const lm = allLandmarks[0];
+        if (lm) {
+            processWipeGesture(lm);
+        } else {
+            document.getElementById('rag-cursor').style.display = 'none';
+            document.getElementById('tip-box').textContent = '请将手放入摄像头，张开手掌擦拭';
         }
     } else {
-        handDetected = false;
-        updateHandStatus(false);
+        // 其他动作：取第一只检测到的手即可
+        const lm = allLandmarks[0];
+        if (!lm) return;
+        if (ex.id === 'hand_circle') {
+            drawTrail(lm[0].x, lm[0].y, ex.color);
+        }
+        const counted = detector.detect(lm);
+        if (counted && currentReps < ex.reps) countRep();
     }
 }
 
-function updateHandStatus(ok) {
+function updateHandStatus(count, labels) {
     const el = document.getElementById('hand-status');
-    if (ok) {
-        el.textContent = '✓ 手部已检测';
-        el.className = 'hand-status hand-ok';
-    } else {
-        el.textContent = '请将手放入摄像头范围';
+    const ex = EXERCISES[currentExIdx];
+    const isOverhead = ex?.id === 'overhead';
+
+    if (count === 0) {
+        el.textContent = isOverhead ? '请将双手放入摄像头范围' : '请将手放入摄像头范围';
         el.className = 'hand-status hand-no';
+    } else if (count === 1) {
+        const which = labels[0] === 'Left' ? '左' : '右';
+        el.textContent = `✓ ${which}手已检测`;
+        // 举手过头要求双手，单手时用黄色警告
+        el.className = `hand-status ${isOverhead ? 'hand-half' : 'hand-ok'}`;
+    } else {
+        el.textContent = '✓ 双手已检测';
+        el.className = 'hand-status hand-ok';
+    }
+}
+
+// 举手过头——双手检测逻辑
+function handleOverheadDetection(handsMap) {
+    if (overheadCooldown > 0) { overheadCooldown--; return; }
+
+    const leftWrist  = handsMap.Left?.[0];
+    const rightWrist = handsMap.Right?.[0];
+
+    const leftHigh  = leftWrist  && leftWrist.y  < 0.28;
+    const rightHigh = rightWrist && rightWrist.y < 0.28;
+    const leftLow   = leftWrist  && leftWrist.y  > 0.55;
+    const rightLow  = rightWrist && rightWrist.y > 0.55;
+
+    const bothHigh = leftHigh && rightHigh;
+    const bothLow  = leftLow  && rightLow;
+
+    // 动态引导文字
+    let guide;
+    if (!leftWrist && !rightWrist) {
+        guide = '请将双手放入摄像头，同时举过头顶';
+    } else if (!leftWrist) {
+        guide = '未检测到左手，请将双手都放入画面';
+    } else if (!rightWrist) {
+        guide = '未检测到右手，请将双手都放入画面';
+    } else if (bothHigh) {
+        guide = '🙌 双手已举高！放下时完成计数';
+    } else if (leftHigh && !rightHigh) {
+        guide = '左手已举起 ✓  请同时举起右手 →';
+    } else if (!leftHigh && rightHigh) {
+        guide = '← 请同时举起左手  右手已举起 ✓';
+    } else {
+        guide = '双手同时举过头顶后再放下';
+    }
+    document.getElementById('tip-box').textContent = guide;
+
+    // 状态机：双手都高 → both_high；之后双手都低 → 计一次
+    if (bothHigh && overheadState !== 'both_high') {
+        overheadState = 'both_high';
+    } else if (overheadState === 'both_high' && bothLow) {
+        overheadState    = 'idle';
+        overheadCooldown = 25;
+        if (currentReps < EXERCISES[currentExIdx].reps) countRep();
     }
 }
 
@@ -846,7 +1333,7 @@ async function initMediaPipe() {
         locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
     });
     hands.setOptions({
-        maxNumHands: 1,
+        maxNumHands: 2,
         modelComplexity: 1,
         minDetectionConfidence: 0.7,
         minTrackingConfidence: 0.6,
