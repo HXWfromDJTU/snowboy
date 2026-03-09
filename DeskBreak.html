@@ -6,6 +6,8 @@
     <title>DeskBreak — 上班族放松操</title>
 
     <script src="https://unpkg.com/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 
@@ -159,10 +161,14 @@
         @keyframes anim-circle { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
         @keyframes anim-overhead { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
         @keyframes anim-spread { 0%,100%{transform:scale(1)} 50%{transform:scale(1.3)} }
+        @keyframes anim-wipe  { 0%,100%{transform:translateX(0)} 40%{transform:translateX(18px)} 60%{transform:translateX(-18px)} }
+        @keyframes anim-neck  { 0%,100%{transform:rotate(0deg)} 30%{transform:rotate(-18deg)} 70%{transform:rotate(18deg)} }
         .anim-fist    { animation: anim-fist    0.8s ease-in-out infinite; }
         .anim-circle  { animation: anim-circle  2s linear infinite; }
         .anim-overhead{ animation: anim-overhead 1.2s ease-in-out infinite; }
         .anim-spread  { animation: anim-spread  1s ease-in-out infinite; }
+        .anim-wipe    { animation: anim-wipe    1.2s ease-in-out infinite; }
+        .anim-neck    { animation: anim-neck    1.6s ease-in-out infinite; }
 
         .ex-name { font-size: 1.15rem; font-weight: 800; }
         .ex-name-en { font-size: 0.78rem; color: rgba(255,255,255,0.45); }
@@ -424,9 +430,18 @@
             </div>
             <span class="ex-card-hint" style="margin:0;flex-shrink:0">点击单独练习 →</span>
         </div>
+        <!-- 颈部活动：宽卡片横跨两列 -->
+        <div class="ex-card" style="border-color:rgba(255,152,0,0.4); grid-column:1/-1; flex-direction:row; align-items:center; gap:14px" onclick="startSingle(5)">
+            <span class="ex-card-icon" style="font-size:2rem;flex-shrink:0">🤸</span>
+            <div style="flex:1">
+                <div class="ex-card-name" style="color:#ff9800">颈部活动</div>
+                <div class="ex-card-reps">× 10 次 &nbsp;·&nbsp; 头部左右交替倾斜</div>
+            </div>
+            <span class="ex-card-hint" style="margin:0;flex-shrink:0">点击单独练习 →</span>
+        </div>
     </div>
     <div class="welcome-divider">或</div>
-    <button class="btn-combo" onclick="startSession()">🏋️ 组合训练 — 全部 5 项</button>
+    <button class="btn-combo" onclick="startSession()">🏋️ 组合训练 — 全部 6 项</button>
 </div>
 
 <!-- EXERCISE -->
@@ -527,6 +542,7 @@ const EXERCISES = [
     { id: 'overhead',     name: '举手过头',   nameEn: 'Overhead Reach',     icon: '🙌', iconAnim: 'anim-overhead',color: '#00bcd4', reps: 12, tip: '举手超过头顶后放下' },
     { id: 'finger_spread',name: '五指伸展',   nameEn: 'Finger Spread',      icon: '🖐', iconAnim: 'anim-spread',  color: '#4caf50', reps: 20, tip: '五指张开后合拢' },
     { id: 'wipe_glass',   name: '擦玻璃',    nameEn: 'Wipe the Glass',     icon: '🪟', iconAnim: 'anim-wipe',    color: '#64b5f6', reps: 10, tip: '握紧拳头，左右擦拭玻璃' },
+    { id: 'neck_tilt',   name: '颈部活动',  nameEn: 'Neck Tilt',          icon: '🤸', iconAnim: 'anim-neck',    color: '#ff9800', reps: 10, tip: '缓慢将头部向左右交替倾斜放松' },
 ];
 const CIRCUMFERENCE = 515;
 const REST_DURATION = 20;
@@ -547,6 +563,14 @@ let trailPoints     = [];
 // 双手举头状态机
 let overheadState    = 'idle'; // 'idle' | 'both_high'
 let overheadCooldown = 0;
+
+// 颈部活动状态机
+let neckTiltState = 'center'; // 'center' | 'left' | 'right'
+let neckLastSide  = null;     // 'left' | 'right' | null — last side reached
+let neckCooldown  = 0;
+
+// Pose 实例（全局，用于颈部活动等身体动作）
+let poseInst = null;
 
 // 训练模式
 let singleMode = false; // true = 单项练习，false = 组合训练
@@ -1066,6 +1090,11 @@ function loadExercise(idx) {
     overheadState    = 'idle';
     overheadCooldown = 0;
 
+    // 重置颈部状态机
+    neckTiltState = 'center';
+    neckLastSide  = null;
+    neckCooldown  = 0;
+
     // Skeleton color (via CSS variable)
     skeletonColor = ex.color;
 
@@ -1318,6 +1347,94 @@ function handleOverheadDetection(handsMap) {
     }
 }
 
+/* ═══════════════════════════════════════════════
+   POSE RESULTS — 颈部活动 & 身体姿态骨架
+═══════════════════════════════════════════════ */
+function onPoseResults(results) {
+    hCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
+    const lm = results.poseLandmarks || null;
+
+    // 绘制身体骨架
+    if (lm && window.drawConnectors && window.POSE_CONNECTIONS) {
+        drawConnectors(hCtx, lm, window.POSE_CONNECTIONS,
+            { color: skeletonColor, lineWidth: 2 });
+        drawLandmarks(hCtx, lm,
+            { color: skeletonColor, radius: 2, lineWidth: 1 });
+    }
+
+    // 更新状态指示器（复用 hand-status 区域显示身体检测状态）
+    const statusEl = document.getElementById('hand-status');
+    if (lm) {
+        statusEl.textContent = '✓ 身体已检测';
+        statusEl.className = 'hand-status hand-ok';
+    } else {
+        statusEl.textContent = '请将头部和肩部放入摄像头范围';
+        statusEl.className = 'hand-status hand-no';
+    }
+
+    if (currentScreen !== 'exercise') return;
+    if (EXERCISES[currentExIdx]?.id === 'neck_tilt') {
+        handleNeckDetection(lm);
+    }
+}
+
+// 颈部左右倾斜检测
+// 原理：比较鼻子(0)相对双肩中点(11,12)的 x 偏移量
+function handleNeckDetection(poseLm) {
+    if (neckCooldown > 0) { neckCooldown--; return; }
+    if (!poseLm) {
+        document.getElementById('tip-box').textContent = '请确保头部和肩部在摄像头范围内';
+        return;
+    }
+
+    const nose      = poseLm[0];
+    const lShoulder = poseLm[11];
+    const rShoulder = poseLm[12];
+    if (!nose || !lShoulder || !rShoulder) return;
+
+    // offset > 0 → 鼻子偏向摄像头右侧 → 用户（镜像后）左倾
+    // offset < 0 → 鼻子偏向摄像头左侧 → 用户（镜像后）右倾
+    const midX   = (lShoulder.x + rShoulder.x) / 2;
+    const offset = nose.x - midX;
+
+    const TILT   = 0.07;  // 触发倾斜的阈值
+    const CENTER = 0.035; // 回正的阈值
+
+    let tip;
+    if (Math.abs(offset) < CENTER) {
+        if (neckTiltState !== 'center') neckTiltState = 'center';
+        if (neckLastSide === 'left')  tip = '回正 ✓  再向右侧倾斜 →';
+        else if (neckLastSide === 'right') tip = '← 回正 ✓  再向左侧倾斜';
+        else tip = '缓慢将头部向左或右倾斜';
+    } else if (offset > TILT) {
+        // 用户左倾（镜像视角）
+        if (neckTiltState !== 'left') {
+            neckTiltState = 'left';
+            if (neckLastSide === 'right') {
+                neckCooldown = 20;
+                if (currentReps < EXERCISES[currentExIdx].reps) countRep();
+            }
+            neckLastSide = 'left';
+        }
+        tip = '◀ 左侧拉伸中… 回正后换右侧';
+    } else if (offset < -TILT) {
+        // 用户右倾（镜像视角）
+        if (neckTiltState !== 'right') {
+            neckTiltState = 'right';
+            if (neckLastSide === 'left') {
+                neckCooldown = 20;
+                if (currentReps < EXERCISES[currentExIdx].reps) countRep();
+            }
+            neckLastSide = 'right';
+        }
+        tip = '右侧拉伸中… 回正后换左侧 ▶';
+    } else {
+        tip = '缓慢将头部向左或右倾斜';
+    }
+
+    document.getElementById('tip-box').textContent = tip;
+}
+
 async function initMediaPipe() {
     const HandsClass  = window.Hands;
     const CameraClass = window.Camera;
@@ -1340,8 +1457,30 @@ async function initMediaPipe() {
     });
     hands.onResults(onResults);
 
+    // 初始化 Pose（用于颈部活动等身体姿态检测）
+    if (window.Pose) {
+        poseInst = new window.Pose({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+        });
+        poseInst.setOptions({
+            modelComplexity: 1,
+            smoothLandmarks: true,
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.5,
+        });
+        poseInst.onResults(onPoseResults);
+    }
+
     const cam = new CameraClass(video, {
-        onFrame: async () => { await hands.send({ image: video }); },
+        onFrame: async () => {
+            // 根据当前练习选择发送到对应模型
+            const exId = EXERCISES[currentExIdx]?.id;
+            if (exId === 'neck_tilt' && poseInst) {
+                await poseInst.send({ image: video });
+            } else {
+                await hands.send({ image: video });
+            }
+        },
         width: 320, height: 240,
     });
 
