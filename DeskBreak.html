@@ -810,8 +810,10 @@ let rainAnimId      = null;
 let lastRefogTime   = 0;
 let glassReady      = false;
 
-// Sweep detection state
-let wipeSwipeState  = 'none'; // 'none'|'at_left'|'at_right'
+// 擦除覆盖率状态
+let wipePercent      = 0;     // 当前已擦除百分比 0-100
+let wipeComplete     = false; // 是否已触发完成
+let lastWipeSample   = 0;     // 上次采样时间戳(ms)
 
 function initGlassExercise() {
     const rc = document.getElementById('rain-canvas');
@@ -938,7 +940,9 @@ function animateGlass() {
 function showGlassOverlay() {
     const ol = document.getElementById('glass-overlay');
     ol.style.display = 'block';
-    wipeSwipeState = 'none';
+    wipePercent    = 0;
+    wipeComplete   = false;
+    lastWipeSample = 0;
     lastRefogTime  = Date.now();
 
     if (!glassReady) {
@@ -975,6 +979,48 @@ function hideGlassOverlay() {
     if (rainAnimId) { cancelAnimationFrame(rainAnimId); rainAnimId = null; }
 }
 
+// 采样 fog-canvas alpha 通道，计算已擦除像素百分比
+// 每隔 step 像素采样一次以减少计算量（误差 < 2%）
+function measureWipeCoverage() {
+    if (!fogCtx) return 0;
+    const W = fogCtx.canvas.width;
+    const H = fogCtx.canvas.height;
+    const step = 6; // 采样步长（px）
+    const data  = fogCtx.getImageData(0, 0, W, H).data;
+    let cleared = 0, total = 0;
+    for (let y = 0; y < H; y += step) {
+        for (let x = 0; x < W; x += step) {
+            total++;
+            // alpha < 128 视为已擦除（透明度低于 50%）
+            if (data[(y * W + x) * 4 + 3] < 128) cleared++;
+        }
+    }
+    return total > 0 ? Math.round((cleared / total) * 100) : 0;
+}
+
+// 更新进度环和百分比数字（专用于擦玻璃面积进度）
+const WIPE_TARGET = 80; // 擦除 80% 即完成
+function updateWipeProgress(pct) {
+    const countEl = document.getElementById('rep-count');
+    const prev = parseInt(countEl.dataset.wipePct || '0');
+    countEl.dataset.wipePct = pct;
+    countEl.textContent = pct + '%';
+
+    // 每升高 10% 触发一次弹跳动画
+    if (Math.floor(pct / 10) > Math.floor(prev / 10)) {
+        countEl.classList.remove('pop');
+        void countEl.offsetWidth;
+        countEl.classList.add('pop');
+        playBleep();
+        burstParticles(EXERCISES[currentExIdx].color);
+    }
+
+    // 进度环：以 WIPE_TARGET 为满
+    const progress = Math.min(pct / WIPE_TARGET, 1);
+    document.getElementById('ring-fg').style.strokeDashoffset =
+        CIRCUMFERENCE * (1 - progress);
+}
+
 // Called from onResults when exercise is wipe_glass
 function processWipeGesture(lm) {
     // Palm center = average of key palm landmarks
@@ -1002,22 +1048,28 @@ function processWipeGesture(lm) {
         rag.style.top     = sy + 'px';
         wipeAt(sx, sy);
 
-        // Sweep rep counting: left zone(x<0.25) ↔ right zone(x>0.75) — mirrored x
-        const mirX = 1 - px;
-        if (mirX < 0.25 && wipeSwipeState !== 'at_left') {
-            if (wipeSwipeState === 'at_right' && currentReps < EXERCISES[currentExIdx].reps) countRep();
-            wipeSwipeState = 'at_left';
-        } else if (mirX > 0.75 && wipeSwipeState !== 'at_right') {
-            if (wipeSwipeState === 'at_left' && currentReps < EXERCISES[currentExIdx].reps) countRep();
-            wipeSwipeState = 'at_right';
+        // 每 300ms 采样一次覆盖率（getImageData 较耗费性能）
+        const now = Date.now();
+        if (now - lastWipeSample > 300) {
+            lastWipeSample = now;
+            wipePercent = measureWipeCoverage();
+            updateWipeProgress(wipePercent);
+
+            if (!wipeComplete && wipePercent >= WIPE_TARGET) {
+                wipeComplete = true;
+                document.getElementById('tip-box').textContent = '🎉 擦干净了！太棒了！';
+                setTimeout(() => advanceExercise(), 800);
+            }
         }
     } else {
         rag.style.display = 'none';
     }
 
-    // Dynamic tip
-    document.getElementById('tip-box').textContent =
-        isFist ? '擦拭中… 左右扫动计一次' : '握紧拳头，左右擦拭玻璃';
+    // Dynamic tip（完成后不覆盖）
+    if (!wipeComplete) {
+        document.getElementById('tip-box').textContent =
+            isFist ? `擦拭中… 已清洁 ${wipePercent}%，目标 ${WIPE_TARGET}%` : '握紧拳头，在玻璃上擦拭';
+    }
 }
 
 /* ═══════════════════════════════════════════════
@@ -1079,9 +1131,15 @@ function loadExercise(idx) {
     // Ring
     document.getElementById('ring-fg').style.stroke           = ex.color;
     document.getElementById('ring-fg').style.strokeDashoffset  = CIRCUMFERENCE;
-    document.getElementById('rep-count').textContent = '0';
     document.getElementById('rep-count').style.color  = ex.color;
-    document.getElementById('rep-goal').textContent   = `/ ${ex.reps}`;
+    document.getElementById('rep-count').dataset.wipePct = '0';
+    if (ex.id === 'wipe_glass') {
+        document.getElementById('rep-count').textContent = '0%';
+        document.getElementById('rep-goal').textContent  = `/ ${WIPE_TARGET}%`;
+    } else {
+        document.getElementById('rep-count').textContent = '0';
+        document.getElementById('rep-goal').textContent  = `/ ${ex.reps}`;
+    }
 
     // Tip
     document.getElementById('tip-box').textContent = ex.tip;
@@ -1143,6 +1201,7 @@ function countRep() {
 
 function manualCount() {
     if (currentScreen !== 'exercise') return;
+    if (EXERCISES[currentExIdx].id === 'wipe_glass') return; // 面积模式不支持手动计数
     if (currentReps < EXERCISES[currentExIdx].reps) countRep();
 }
 
@@ -1191,7 +1250,8 @@ function showComplete() {
     if (singleMode) {
         document.getElementById('complete-emoji').textContent  = ex.icon;
         document.getElementById('complete-title').textContent  = `${ex.name} · 完成！`;
-        document.getElementById('stat-reps').textContent = ex.reps;
+        document.getElementById('stat-reps').textContent =
+            ex.id === 'wipe_glass' ? wipePercent + '%' : ex.reps;
         document.getElementById('stat-exs').textContent  = 1;
     } else {
         document.getElementById('complete-emoji').textContent  = '🎉';
