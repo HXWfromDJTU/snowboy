@@ -24,6 +24,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Copy mediapipe assets to public
+        run: |
+          mkdir -p public/mediapipe
+          for pkg in hands pose drawing_utils camera_utils; do
+            cp -r node_modules/@mediapipe/$pkg public/mediapipe/$pkg
+          done
+
       - name: Build
         run: npm run build
 
