@@ -41,28 +41,31 @@ jobs:
             dist/ \
             root@43.162.124.194:/opt/snowboy/
 
-      - name: Configure Nginx
+      - name: Configure Nginx (first deploy only)
         run: |
           ssh -i ~/.ssh/id_ed25519 root@43.162.124.194 python3 << 'PYEOF'
           import subprocess
 
           CONF = "/www/server/panel/vhost/nginx/deskbreak.onflower.cn.conf"
-          BEGIN_MARKER = "# BEGIN snowboy"
-          END_MARKER = "# END snowboy"
+
+          with open(CONF) as f:
+              content = f.read()
+
+          if "location /snowboy" in content:
+              print("Nginx snowboy config already exists, skipping")
+              raise SystemExit(0)
+
           SNOWBOY_BLOCK = """
-              # BEGIN snowboy
               location /snowboy {
                   alias /opt/snowboy/;
                   index index.html;
                   try_files $uri $uri/ /snowboy/index.html;
 
-                  # index.html: no cache, always revalidate
                   location = /snowboy/index.html {
                       alias /opt/snowboy/index.html;
                       add_header Cache-Control "no-cache, must-revalidate";
                   }
 
-                  # mediapipe static files: 7-day cache
                   location ~* ^/snowboy/mediapipe/ {
                       alias /opt/snowboy/mediapipe/;
                       add_header Cache-Control "public, max-age=604800";
@@ -73,44 +76,11 @@ jobs:
               location ~* /snowboy/(\\.git|\\.env|\\.htaccess|\\.svn|LICENSE|README\\.md) {
                   deny all;
               }
-              # END snowboy
           """
 
-          def remove_location_block(text, pattern):
-              import re
-              m = re.search(pattern, text)
-              if not m:
-                  return text
-              brace_pos = text.find('{', m.start())
-              if brace_pos == -1:
-                  return text
-              depth, pos = 1, brace_pos + 1
-              while pos < len(text) and depth > 0:
-                  if text[pos] == '{': depth += 1
-                  elif text[pos] == '}': depth -= 1
-                  pos += 1
-              line_start = text.rfind('\n', 0, m.start()) + 1
-              end = pos + (1 if pos < len(text) and text[pos] == '\n' else 0)
-              return text[:line_start] + text[end:]
-
-          with open(CONF, "r") as f:
-              content = f.read()
-
-          if BEGIN_MARKER in content and END_MARKER in content:
-              # Replace existing marked snowboy block
-              start = content.find(BEGIN_MARKER)
-              end = content.find(END_MARKER) + len(END_MARKER)
-              new_content = content[:start].rstrip() + "\n" + SNOWBOY_BLOCK.strip() + "\n" + content[end:].lstrip()
-          else:
-              # Remove old unmarked snowboy location blocks, then insert new one
-              content = remove_location_block(content, r'location\s+/snowboy\b')
-              content = remove_location_block(content, r'location\s+~\*\s+/snowboy/')
-              last_brace = content.rfind("}")
-              new_content = content[:last_brace] + SNOWBOY_BLOCK + "\n}"
-
+          last_brace = content.rfind("}")
           with open(CONF, "w") as f:
-              f.write(new_content)
-          print("Nginx config updated")
+              f.write(content[:last_brace] + SNOWBOY_BLOCK + "}")
 
           result = subprocess.run(["nginx", "-t"], capture_output=True, text=True)
           if result.returncode != 0:
@@ -118,6 +88,6 @@ jobs:
               raise SystemExit("nginx -t failed")
 
           subprocess.run(["systemctl", "reload", "nginx"], check=True)
-          print("Nginx reloaded")
+          print("Nginx configured and reloaded")
           PYEOF
 
