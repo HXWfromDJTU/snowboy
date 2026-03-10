@@ -76,16 +76,35 @@ jobs:
               # END snowboy
           """
 
+          def remove_location_block(text, pattern):
+              import re
+              m = re.search(pattern, text)
+              if not m:
+                  return text
+              brace_pos = text.find('{', m.start())
+              if brace_pos == -1:
+                  return text
+              depth, pos = 1, brace_pos + 1
+              while pos < len(text) and depth > 0:
+                  if text[pos] == '{': depth += 1
+                  elif text[pos] == '}': depth -= 1
+                  pos += 1
+              line_start = text.rfind('\n', 0, m.start()) + 1
+              end = pos + (1 if pos < len(text) and text[pos] == '\n' else 0)
+              return text[:line_start] + text[end:]
+
           with open(CONF, "r") as f:
               content = f.read()
 
           if BEGIN_MARKER in content and END_MARKER in content:
-              # Replace existing snowboy block
+              # Replace existing marked snowboy block
               start = content.find(BEGIN_MARKER)
               end = content.find(END_MARKER) + len(END_MARKER)
               new_content = content[:start].rstrip() + "\n" + SNOWBOY_BLOCK.strip() + "\n" + content[end:].lstrip()
           else:
-              # Insert snowboy block before the last closing brace
+              # Remove old unmarked snowboy location blocks, then insert new one
+              content = remove_location_block(content, r'location\s+/snowboy\b')
+              content = remove_location_block(content, r'location\s+~\*\s+/snowboy/')
               last_brace = content.rfind("}")
               new_content = content[:last_brace] + SNOWBOY_BLOCK + "\n}"
 
