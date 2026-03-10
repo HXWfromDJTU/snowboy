@@ -32,14 +32,14 @@ jobs:
 
       - name: Prepare server directory
         run: |
-          ssh -i ~/.ssh/id_ed25519 root@43.162.124.194 "mkdir -p /opt/snowboy"
+          ssh -i ~/.ssh/id_ed25519 root@43.162.124.194 "mkdir -p /opt/deskbreak"
 
       - name: Deploy files
         run: |
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/id_ed25519" \
             dist/ \
-            root@43.162.124.194:/opt/snowboy/
+            root@43.162.124.194:/opt/deskbreak/
 
       - name: Configure Nginx (first deploy only)
         run: |
@@ -51,36 +51,36 @@ jobs:
           with open(CONF) as f:
               content = f.read()
 
-          if "location /snowboy" in content:
-              print("Nginx snowboy config already exists, skipping")
+          if "location /deskbreak" in content:
+              print("Nginx deskbreak config already exists, skipping")
               raise SystemExit(0)
 
-          SNOWBOY_BLOCK = """
-              location /snowboy {
-                  alias /opt/snowboy/;
+          DESKBREAK_BLOCK = """
+              location /deskbreak {
+                  alias /opt/deskbreak/;
                   index index.html;
-                  try_files $uri $uri/ /snowboy/index.html;
+                  try_files $uri $uri/ /deskbreak/index.html;
 
-                  location = /snowboy/index.html {
-                      alias /opt/snowboy/index.html;
+                  location = /deskbreak/index.html {
+                      alias /opt/deskbreak/index.html;
                       add_header Cache-Control "no-cache, must-revalidate";
                   }
 
-                  location ~* ^/snowboy/mediapipe/ {
-                      alias /opt/snowboy/mediapipe/;
+                  location ~* ^/deskbreak/mediapipe/ {
+                      alias /opt/deskbreak/mediapipe/;
                       add_header Cache-Control "public, max-age=604800";
                       expires 7d;
                   }
               }
 
-              location ~* /snowboy/(\\.git|\\.env|\\.htaccess|\\.svn|LICENSE|README\\.md) {
+              location ~* /deskbreak/(\\.git|\\.env|\\.htaccess|\\.svn|LICENSE|README\\.md) {
                   deny all;
               }
           """
 
           last_brace = content.rfind("}")
           with open(CONF, "w") as f:
-              f.write(content[:last_brace] + SNOWBOY_BLOCK + "}")
+              f.write(content[:last_brace] + DESKBREAK_BLOCK + "}")
 
           result = subprocess.run(["nginx", "-t"], capture_output=True, text=True)
           if result.returncode != 0:
