@@ -5,11 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>DeskBreak — 上班族放松操</title>
 
-    <script src="https://unpkg.com/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="/mediapipe/hands/hands.js"></script>
+    <script src="/mediapipe/pose/pose.js"></script>
+    <script src="/mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="/mediapipe/camera_utils/camera_utils.js"></script>
 
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2402,7 +2401,7 @@ async function initMediaPipe() {
     let hands;
     try {
         const h = new HandsClass({
-            locateFile: (file) => `https://unpkg.com/@mediapipe/hands/${file}`
+            locateFile: (file) => { const s = document.querySelector('script[src*="/hands.js"]'); return s ? s.src.slice(0, s.src.lastIndexOf('/') + 1) + file : `/mediapipe/hands/${file}`; }
         });
         h.setOptions({
             maxNumHands: 2,
@@ -2428,7 +2427,7 @@ async function initMediaPipe() {
     if (window.Pose) {
         try {
             const p = new window.Pose({
-                locateFile: (file) => `https://unpkg.com/@mediapipe/pose/${file}`
+                locateFile: (file) => { const s = document.querySelector('script[src*="/pose.js"]'); return s ? s.src.slice(0, s.src.lastIndexOf('/') + 1) + file : `/mediapipe/pose/${file}`; }
             });
             p.setOptions({
                 modelComplexity: 1,

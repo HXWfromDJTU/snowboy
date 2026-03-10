@@ -47,31 +47,51 @@ jobs:
           import subprocess
 
           CONF = "/www/server/panel/vhost/nginx/deskbreak.onflower.cn.conf"
+          BEGIN_MARKER = "# BEGIN snowboy"
+          END_MARKER = "# END snowboy"
           SNOWBOY_BLOCK = """
-              # snowboy
+              # BEGIN snowboy
               location /snowboy {
                   alias /opt/snowboy/;
                   index index.html;
                   try_files $uri $uri/ /snowboy/index.html;
+
+                  # index.html: no cache, always revalidate
+                  location = /snowboy/index.html {
+                      alias /opt/snowboy/index.html;
+                      add_header Cache-Control "no-cache, must-revalidate";
+                  }
+
+                  # mediapipe static files: 7-day cache
+                  location ~* ^/snowboy/mediapipe/ {
+                      alias /opt/snowboy/mediapipe/;
+                      add_header Cache-Control "public, max-age=604800";
+                      expires 7d;
+                  }
               }
 
               location ~* /snowboy/(\\.git|\\.env|\\.htaccess|\\.svn|LICENSE|README\\.md) {
                   deny all;
               }
+              # END snowboy
           """
 
           with open(CONF, "r") as f:
               content = f.read()
 
-          if "location /snowboy" in content:
-              print("Nginx snowboy config already exists, skipping")
+          if BEGIN_MARKER in content and END_MARKER in content:
+              # Replace existing snowboy block
+              start = content.find(BEGIN_MARKER)
+              end = content.find(END_MARKER) + len(END_MARKER)
+              new_content = content[:start].rstrip() + "\n" + SNOWBOY_BLOCK.strip() + "\n" + content[end:].lstrip()
           else:
-              # 在最后一个 } 之前插入 snowboy 块
+              # Insert snowboy block before the last closing brace
               last_brace = content.rfind("}")
               new_content = content[:last_brace] + SNOWBOY_BLOCK + "\n}"
-              with open(CONF, "w") as f:
-                  f.write(new_content)
-              print("Nginx config updated")
+
+          with open(CONF, "w") as f:
+              f.write(new_content)
+          print("Nginx config updated")
 
           result = subprocess.run(["nginx", "-t"], capture_output=True, text=True)
           if result.returncode != 0:
