@@ -380,14 +380,362 @@
             pointer-events: none;
             z-index: 5;
         }
+
+        /* ── AVATAR BUTTON ── */
+        #avatar-btn {
+            position: fixed;
+            top: 14px; right: 14px;
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.22);
+            background: linear-gradient(135deg, #00e5ff, #7c4dff);
+            color: white;
+            font-size: 1rem; font-weight: 800;
+            cursor: pointer;
+            z-index: 200;
+            display: none;
+            align-items: center; justify-content: center;
+            transition: transform 0.15s, box-shadow 0.15s;
+            padding: 0; letter-spacing: 0;
+        }
+        #avatar-btn:hover { transform: scale(1.08); box-shadow: 0 0 14px rgba(0,229,255,0.4); }
+        #avatar-btn.female { background: linear-gradient(135deg, #f06292, #ce93d8); }
+        #avatar-btn.male   { background: linear-gradient(135deg, #40c4ff, #7c4dff); }
+
+        /* ── EXIT BUTTON ── */
+        .btn-exit {
+            position: absolute;
+            top: 14px; left: 14px;
+            width: 34px; height: 34px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.45);
+            font-size: 1.05rem;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+            z-index: 5; line-height: 1;
+        }
+        .btn-exit:hover { background: rgba(255,80,80,0.15); color: #ff8080; border-color: rgba(255,80,80,0.3); }
+
+        /* ── EXIT CONFIRM MODAL ── */
+        #exit-modal {
+            position: fixed; inset: 0; z-index: 500;
+            display: none;
+            align-items: center; justify-content: center;
+        }
+        .modal-backdrop {
+            position: absolute; inset: 0;
+            background: rgba(0,0,0,0.72);
+            backdrop-filter: blur(5px);
+        }
+        .modal-box {
+            position: relative; z-index: 1;
+            background: #13132e;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 20px;
+            padding: 28px 24px;
+            width: min(340px, 88vw);
+            display: flex; flex-direction: column; gap: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        }
+        .modal-warn-icon { font-size: 2rem; text-align: center; }
+        .modal-title { font-size: 1rem; font-weight: 800; color: white; text-align: center; }
+        .modal-body { font-size: 0.82rem; color: rgba(255,255,255,0.45); line-height: 1.65; text-align: center; }
+        .modal-body strong { color: #ff8080; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 4px; }
+        .modal-actions button {
+            flex: 1; padding: 13px; border-radius: 12px;
+            font-size: 0.88rem; font-weight: 700; cursor: pointer;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+        .modal-actions button:active { transform: scale(0.97); }
+        .btn-modal-cancel { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.75); border: 1px solid rgba(255,255,255,0.15); }
+        .btn-modal-confirm { background: #e53935; color: white; border: none; }
+
+        /* ── PROFILE DRAWER ── */
+        #profile-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(4px);
+            z-index: 300;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        #profile-overlay.open { opacity: 1; pointer-events: all; }
+        #profile-drawer {
+            position: fixed;
+            top: 0; right: 0; bottom: 0;
+            width: min(320px, 92vw);
+            background: #0e0e22;
+            border-left: 1px solid rgba(255,255,255,0.08);
+            z-index: 301;
+            transform: translateX(110%);
+            transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+            display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+        #profile-drawer.open { transform: translateX(0); }
+        .drawer-header {
+            padding: 20px 16px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            display: flex; align-items: center; gap: 14px;
+            position: relative; flex-shrink: 0;
+        }
+        .drawer-close {
+            position: absolute; top: 14px; right: 14px;
+            width: 30px; height: 30px; border-radius: 50%;
+            background: rgba(255,255,255,0.07); border: none;
+            color: rgba(255,255,255,0.5); cursor: pointer; font-size: 0.9rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .drawer-close:hover { background: rgba(255,255,255,0.13); color: white; }
+        .drawer-avatar-lg {
+            width: 52px; height: 52px; border-radius: 50%;
+            background: linear-gradient(135deg, #00e5ff, #7c4dff);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem; font-weight: 800; color: white; flex-shrink: 0;
+        }
+        .drawer-avatar-lg.female { background: linear-gradient(135deg, #f06292, #ce93d8); }
+        .drawer-avatar-lg.male   { background: linear-gradient(135deg, #40c4ff, #7c4dff); }
+        .d-username { font-size: 1.05rem; font-weight: 800; }
+        .d-usersub  { font-size: 0.74rem; color: rgba(255,255,255,0.38); margin-top: 3px; }
+        .drawer-body { flex: 1; overflow-y: auto; padding: 0 16px; }
+        .d-section { padding: 16px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .d-section:last-child { border-bottom: none; }
+        .d-section-title { font-size: 0.68rem; color: rgba(255,255,255,0.28); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; }
+        .log-day { margin-bottom: 12px; }
+        .log-day-label { font-size: 0.75rem; color: rgba(255,255,255,0.45); margin-bottom: 6px; font-weight: 600; }
+        .log-day-items { display: flex; flex-wrap: wrap; gap: 5px; }
+        .log-chip { padding: 4px 10px; border-radius: 20px; font-size: 0.70rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); }
+        .log-empty { text-align: center; color: rgba(255,255,255,0.22); font-size: 0.82rem; padding: 24px 0; line-height: 1.8; }
+        .drawer-footer { padding: 14px 16px; border-top: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+        .btn-d-action {
+            padding: 12px; border-radius: 11px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.65); font-size: 0.85rem; font-weight: 600;
+            cursor: pointer; text-align: left; transition: background 0.2s;
+        }
+        .btn-d-action:hover { background: rgba(255,255,255,0.09); }
+        .btn-d-action.danger { color: #ff7070; border-color: rgba(255,112,112,0.25); background: rgba(255,112,112,0.06); }
+        .btn-d-action.danger:hover { background: rgba(255,112,112,0.12); }
+        /* ── INTENSITY PILLS (profile drawer) ── */
+        .intensity-pills { display: flex; flex-direction: column; gap: 7px; }
+        .intensity-pill {
+            padding: 11px 13px; border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            color: rgba(255,255,255,0.55); font-size: 0.83rem;
+            cursor: pointer; text-align: left; transition: all 0.2s; width: 100%;
+        }
+        .intensity-pill:hover { background: rgba(255,255,255,0.08); }
+        .intensity-pill.selected { border-color: #00e5ff; background: rgba(0,229,255,0.1); color: #00e5ff; }
+        .intensity-pill small { display: block; font-size: 0.68rem; opacity: 0.6; margin-top: 2px; }
+
+        /* ── ONBOARDING ── */
+        #screen-onboarding { gap: 18px; }
+        .ob-title { font-size: 1.25rem; font-weight: 900; }
+        .ob-sub { font-size: 0.85rem; color: rgba(255,255,255,0.4); margin-top: -8px; }
+        .ob-label { font-size: 0.76rem; color: rgba(255,255,255,0.38); width: 100%; max-width: 340px; letter-spacing: 0.04em; margin-bottom: -8px; }
+        .gender-row { display: flex; gap: 10px; width: 100%; max-width: 340px; }
+        .gender-card {
+            flex: 1; padding: 14px 8px; border-radius: 14px;
+            border: 2px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            cursor: pointer; text-align: center;
+            transition: border-color 0.2s, background 0.2s;
+            font-size: 0.82rem; color: rgba(255,255,255,0.6);
+        }
+        .gender-card .gc-icon { font-size: 1.6rem; display: block; margin-bottom: 5px; }
+        .gender-card:hover { background: rgba(255,255,255,0.08); }
+        .gender-card.selected { border-color: #00e5ff; background: rgba(0,229,255,0.1); color: #00e5ff; }
+        .ob-input {
+            width: 100%; max-width: 340px;
+            padding: 14px 18px; border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.06);
+            color: white; font-size: 1rem; outline: none; text-align: center;
+            transition: border-color 0.25s;
+        }
+        .ob-input:focus { border-color: rgba(0,229,255,0.6); }
+        .ob-input::placeholder { color: rgba(255,255,255,0.25); }
+        @keyframes shake {
+            0%,100% { transform: translateX(0); }
+            25% { transform: translateX(-7px); }
+            75% { transform: translateX(7px); }
+        }
+
+        /* ── MODEL LOAD STEPS ── */
+        #load-steps { display:flex; flex-direction:column; gap:10px; width:100%; max-width:300px; }
+        .load-step {
+            display:flex; align-items:center; gap:13px;
+            background:rgba(255,255,255,0.04);
+            border:1px solid rgba(255,255,255,0.08);
+            border-radius:12px; padding:11px 14px;
+            transition:border-color 0.35s, background 0.35s;
+        }
+        .load-step.ok   { border-color:rgba(0,229,255,0.32);  background:rgba(0,229,255,0.05); }
+        .load-step.fail { border-color:rgba(255,80,80,0.32);   background:rgba(255,80,80,0.05); }
+        .load-step.loading { border-color:rgba(255,255,255,0.16); }
+        .lstep-dot {
+            width:22px; height:22px; flex-shrink:0;
+            border-radius:50%;
+            background:rgba(255,255,255,0.08);
+            display:flex; align-items:center; justify-content:center;
+            font-size:0.78rem; font-weight:700;
+            transition:background 0.3s, color 0.3s;
+        }
+        .load-step.ok   .lstep-dot { background:rgba(0,229,255,0.2);  color:#00e5ff; }
+        .load-step.fail .lstep-dot { background:rgba(255,80,80,0.2);   color:#ff6b6b; }
+        .lstep-dot .mini-spin {
+            width:11px; height:11px;
+            border:2px solid rgba(255,255,255,0.12);
+            border-top-color:rgba(255,255,255,0.75);
+            border-radius:50%;
+            animation:spin 0.8s linear infinite;
+        }
+        .lstep-info { flex:1; min-width:0; }
+        .lstep-name { font-size:0.82rem; font-weight:700; }
+        .lstep-sub  { font-size:0.66rem; color:rgba(255,255,255,0.25); margin-top:2px; }
+        .lstep-tag  { font-size:0.67rem; padding:2px 8px; border-radius:20px; flex-shrink:0; white-space:nowrap; }
+        .load-step.ok      .lstep-tag { background:rgba(0,229,255,0.13);  color:#00e5ff; }
+        .load-step.fail    .lstep-tag { background:rgba(255,80,80,0.13);   color:#ff7070; }
+        .load-step.loading .lstep-tag { background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.35); }
+        .load-step.pending .lstep-tag { color:rgba(255,255,255,0.18); }
+        #load-error-box {
+            display:none; flex-direction:column; align-items:center;
+            gap:14px; margin-top:22px; width:100%; max-width:300px;
+        }
+        #load-error-msg {
+            font-size:0.8rem; color:rgba(255,130,130,0.9);
+            text-align:center; line-height:1.7; max-width:280px;
+        }
+
+        #load-success-box {
+            display:none; flex-direction:column; align-items:center;
+            gap:8px; margin-top:22px;
+        }
+        @keyframes load-done-pop {
+            from { opacity:0; transform:scale(0.4); }
+            to   { opacity:1; transform:scale(1);   }
+        }
+        .load-done-emoji { font-size:2.4rem; animation:load-done-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) both; }
+
+        /* ── EMOJI BUBBLES ── */
+        .emoji-bubble {
+            position: fixed;
+            pointer-events: none;
+            user-select: none;
+            z-index: 50;
+            font-size: 1.8rem;
+            line-height: 1;
+            animation: emoji-float 2.3s ease-out forwards;
+        }
+        @keyframes emoji-float {
+            0%   { transform: translate(0, 0) scale(0.2);                       opacity: 0; }
+            12%  { transform: translate(0, -16px) scale(1.2);                   opacity: 1; }
+            55%  { opacity: 0.8; }
+            100% { transform: translate(var(--drift, 0px), -185px) scale(0.65); opacity: 0; }
+        }
     </style>
 </head>
 <body>
 
 <!-- LOADING -->
 <div id="screen-loading" class="screen">
-    <div class="spinner"></div>
-    <p class="loading-text">正在初始化摄像头…</p>
+    <p class="app-title" style="font-size:clamp(1.4rem,5vw,2rem);margin-bottom:6px">DeskBreak</p>
+    <p style="color:rgba(255,255,255,0.28);font-size:0.75rem;margin-bottom:28px;letter-spacing:0.08em">正在加载运动识别引擎</p>
+
+    <div id="load-steps">
+        <div class="load-step pending" id="lstep-hands">
+            <div class="lstep-dot"></div>
+            <div class="lstep-info">
+                <div class="lstep-name">手势识别引擎</div>
+                <div class="lstep-sub">MediaPipe Hands</div>
+            </div>
+            <span class="lstep-tag">等待中</span>
+        </div>
+        <div class="load-step pending" id="lstep-pose">
+            <div class="lstep-dot"></div>
+            <div class="lstep-info">
+                <div class="lstep-name">姿态识别引擎</div>
+                <div class="lstep-sub">MediaPipe Pose</div>
+            </div>
+            <span class="lstep-tag">等待中</span>
+        </div>
+        <div class="load-step pending" id="lstep-camera">
+            <div class="lstep-dot"></div>
+            <div class="lstep-info">
+                <div class="lstep-name">摄像头</div>
+                <div class="lstep-sub">Camera Access</div>
+            </div>
+            <span class="lstep-tag">等待中</span>
+        </div>
+    </div>
+
+    <div id="load-error-box">
+        <p id="load-error-msg"></p>
+        <button class="btn-start" onclick="retryModelLoad()" style="font-size:0.9rem;padding:13px 40px">重新加载 ↺</button>
+
+    </div>
+
+    <div id="load-success-box">
+        <div class="load-done-emoji">🎉</div>
+        <p style="color:#00e5ff;font-size:0.88rem;font-weight:700;letter-spacing:0.05em">准备就绪！</p>
+    </div>
+</div>
+
+<!-- CAMERA PERMISSION DENIED MODAL -->
+<div id="camera-modal" style="position:fixed;inset:0;z-index:600;display:none;align-items:center;justify-content:center;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-box">
+        <div class="modal-warn-icon">📷</div>
+        <div class="modal-title">需要摄像头权限</div>
+        <div class="modal-body">
+            运动检测需要使用摄像头。<br>
+            请在浏览器地址栏点击<strong style="color:#00e5ff">摄像头图标</strong>，<br>
+            将权限改为「允许」后重试。
+        </div>
+        <div class="modal-actions">
+            <button class="btn-modal-confirm" style="background:#00e5ff;color:#080818;" onclick="retryCameraPermission()">重新授权</button>
+        </div>
+    </div>
+</div>
+
+<!-- ONBOARDING (首次进入) -->
+<div id="screen-onboarding" class="screen hidden">
+    <p class="app-title">DeskBreak</p>
+    <p class="ob-title">你好，欢迎！👋</p>
+    <p class="ob-sub">先让我们认识一下</p>
+    <p class="ob-label">选择你的性别</p>
+    <div class="gender-row" id="gender-row">
+        <div class="gender-card" onclick="selectGender('male')" id="gc-male">
+            <span class="gc-icon">♂</span>男
+        </div>
+        <div class="gender-card" onclick="selectGender('female')" id="gc-female">
+            <span class="gc-icon">♀</span>女
+        </div>
+        <div class="gender-card" onclick="selectGender('other')" id="gc-other">
+            <span class="gc-icon">🌈</span>其他
+        </div>
+    </div>
+    <p class="ob-label">你的名字（最多 15 个字符）</p>
+    <input class="ob-input" id="onboard-name" type="text" placeholder="输入你的名字" maxlength="15" autocomplete="off">
+    <p class="ob-label">练习强度</p>
+    <div class="gender-row" id="intensity-ob-row">
+        <div class="gender-card" onclick="selectIntensity('casual')" id="ic-casual">
+            <span class="gc-icon">😌</span>我就玩玩
+        </div>
+        <div class="gender-card selected" onclick="selectIntensity('moderate')" id="ic-moderate">
+            <span class="gc-icon">💪</span>休息一下
+        </div>
+        <div class="gender-card" onclick="selectIntensity('intense')" id="ic-intense">
+            <span class="gc-icon">🔥</span>身体僵硬
+        </div>
+    </div>
+    <button class="btn-start" onclick="completeOnboarding()" style="margin-top:6px">开始锻炼 →</button>
 </div>
 
 <!-- WELCOME -->
@@ -398,36 +746,33 @@
         <div class="ex-card" style="border-color:rgba(255,107,53,0.35)" onclick="startSingle(0)">
             <span class="ex-card-icon">✊</span>
             <span class="ex-card-name" style="color:#ff6b35">握拳松开</span>
-            <span class="ex-card-reps">× 15 次</span>
+            <span class="ex-card-reps" data-ex="fist_pump">× 15 次</span>
             <span class="ex-card-hint">点击单独练习</span>
         </div>
         <div class="ex-card" style="border-color:rgba(124,77,255,0.35)" onclick="startSingle(1)">
             <span class="ex-card-icon">🌀</span>
             <span class="ex-card-name" style="color:#7c4dff">手腕绕圈</span>
-            <span class="ex-card-reps">× 10 次</span>
+            <span class="ex-card-reps" data-ex="hand_circle">× 10 次</span>
             <span class="ex-card-hint">点击单独练习</span>
         </div>
         <div class="ex-card" style="border-color:rgba(0,188,212,0.35)" onclick="startSingle(2)">
             <span class="ex-card-icon">🙌</span>
             <span class="ex-card-name" style="color:#00bcd4">举手过头</span>
-            <span class="ex-card-reps">× 12 次</span>
+            <span class="ex-card-reps" data-ex="overhead">× 12 次</span>
             <span class="ex-card-hint">点击单独练习</span>
         </div>
-        <!-- 擦玻璃：宽卡片横跨两列 -->
-        <div class="ex-card" style="border-color:rgba(100,181,246,0.4); grid-column:1/-1; flex-direction:row; align-items:center; gap:14px" onclick="startSingle(3)">
-            <span class="ex-card-icon" style="font-size:2rem;flex-shrink:0">🪟</span>
-            <div style="flex:1">
-                <div class="ex-card-name" style="color:#64b5f6">擦玻璃</div>
-                <div class="ex-card-reps">× 10 次 &nbsp;·&nbsp; 握拳左右擦拭</div>
-            </div>
-            <span class="ex-card-hint" style="margin:0;flex-shrink:0">点击单独练习 →</span>
+        <div class="ex-card" style="border-color:rgba(100,181,246,0.4)" onclick="startSingle(3)">
+            <span class="ex-card-icon">🪟</span>
+            <span class="ex-card-name" style="color:#64b5f6">擦玻璃</span>
+            <span class="ex-card-reps" data-ex="wipe_glass">覆盖 80%</span>
+            <span class="ex-card-hint">点击单独练习</span>
         </div>
-        <!-- 颈部活动：宽卡片横跨两列 -->
+        <!-- 颈部活动：全宽，使用身体识别，与其他手部项目有差异 -->
         <div class="ex-card" style="border-color:rgba(255,152,0,0.4); grid-column:1/-1; flex-direction:row; align-items:center; gap:14px" onclick="startSingle(4)">
             <span class="ex-card-icon" style="font-size:2rem;flex-shrink:0">🤸</span>
             <div style="flex:1">
                 <div class="ex-card-name" style="color:#ff9800">颈部活动</div>
-                <div class="ex-card-reps">× 10 次 &nbsp;·&nbsp; 头部左右交替倾斜</div>
+                <div class="ex-card-reps" id="neck-card-reps" data-ex="neck_tilt">× 10 次 &nbsp;·&nbsp; 头部左右交替倾斜</div>
             </div>
             <span class="ex-card-hint" style="margin:0;flex-shrink:0">点击单独练习 →</span>
         </div>
@@ -438,6 +783,7 @@
 
 <!-- EXERCISE -->
 <div id="screen-exercise" class="screen hidden">
+    <button class="btn-exit" onclick="showExitConfirm()" title="退出当前练习">←</button>
     <div class="session-dots" id="session-dots"></div>
     <div class="ex-header">
         <div class="ex-icon-wrap" id="ex-icon">✊</div>
@@ -522,6 +868,50 @@
     <canvas id="hand-canvas"></canvas>
 </div>
 
+<!-- AVATAR BUTTON (top-right, z-200) -->
+<button id="avatar-btn" onclick="toggleProfile()">?</button>
+
+<!-- EXIT CONFIRM MODAL (z-500) -->
+<div id="exit-modal">
+    <div class="modal-backdrop" onclick="closeExitModal()"></div>
+    <div class="modal-box">
+        <div class="modal-warn-icon">⚠️</div>
+        <div class="modal-title">确定要退出吗？</div>
+        <div class="modal-body">当前锻炼<strong>进度将不会被记录</strong>，<br>退出后本次训练数据清零。</div>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" onclick="closeExitModal()">继续锻炼</button>
+            <button class="btn-modal-confirm" onclick="confirmExit()">退出</button>
+        </div>
+    </div>
+</div>
+
+<!-- PROFILE OVERLAY + DRAWER (z-300/301) -->
+<div id="profile-overlay" onclick="closeProfile()"></div>
+<div id="profile-drawer">
+    <div class="drawer-header">
+        <div class="drawer-avatar-lg" id="d-avatar">?</div>
+        <div>
+            <div class="d-username" id="d-username">用户</div>
+            <div class="d-usersub"  id="d-usersub">—</div>
+        </div>
+        <button class="drawer-close" onclick="closeProfile()">✕</button>
+    </div>
+    <div class="drawer-body">
+        <div class="d-section">
+            <div class="d-section-title">练习强度</div>
+            <div class="intensity-pills" id="d-intensity-pills"></div>
+        </div>
+        <div class="d-section">
+            <div class="d-section-title">锻炼记录 · 近 7 天</div>
+            <div id="log-content"></div>
+        </div>
+    </div>
+    <div class="drawer-footer">
+        <button class="btn-d-action" onclick="clearLog()">🗑️ &nbsp;清除所有锻炼记录</button>
+        <button class="btn-d-action danger" onclick="logoutUser()">⚠️ &nbsp;注销账户（清除全部数据）</button>
+    </div>
+</div>
+
 <script>
 'use strict';
 
@@ -539,11 +929,30 @@ const CIRCUMFERENCE = 515;
 const REST_DURATION = 20;
 
 /* ═══════════════════════════════════════════════
+   INTENSITY LEVELS
+═══════════════════════════════════════════════ */
+const INTENSITY_LEVELS = [
+    { id: 'casual',   emoji: '😌', label: '我就玩玩', desc: '轻松活动关节',
+      reps: { fist_pump: 8,  hand_circle: 6,  overhead: 8,  wipe_glass: 1, neck_tilt: 6  } },
+    { id: 'moderate', emoji: '💪', label: '休息一下', desc: '适度放松舒展',
+      reps: { fist_pump: 15, hand_circle: 10, overhead: 12, wipe_glass: 1, neck_tilt: 10 } },
+    { id: 'intense',  emoji: '🔥', label: '身体僵硬', desc: '充分活动全身',
+      reps: { fist_pump: 20, hand_circle: 15, overhead: 16, wipe_glass: 1, neck_tilt: 15 } },
+];
+
+function getCurrentReps(exId) {
+    const user  = getUser();
+    const level = INTENSITY_LEVELS.find(l => l.id === (user?.intensity || 'moderate'));
+    return level?.reps[exId] ?? EXERCISES.find(e => e.id === exId)?.reps ?? 10;
+}
+
+/* ═══════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════ */
 let currentScreen   = 'loading';
 let currentExIdx    = 0;
 let currentReps     = 0;
+let currentExReps   = 0; // 当前练习的目标次数（根据强度动态设置）
 let detector        = null;
 let restTimerId     = null;
 let restRemaining   = REST_DURATION;
@@ -707,6 +1116,176 @@ function animParticles() {
     } else {
         animFrameId = null;
     }
+}
+
+/* ═══════════════════════════════════════════════
+   EMOJI BUBBLE SYSTEM (idle-screen gesture fun)
+═══════════════════════════════════════════════ */
+const _BUBBLE_CFG = {
+    v_sign:     { emoji: '✌️',  interval: 600 },
+    thumbs_up:  { emoji: '👍',  interval: 600 },
+    ok_sign:    { emoji: '👌',  interval: 600 },
+    big_v:      { emoji: '🤷‍♂️', interval: 700 },
+    heart:      { emoji: '🩷',  interval: 700 },
+    arm_circle: { emoji: '⭕️', interval: 800 },
+    cross_arms: { emoji: '❌',  interval: 800 },
+};
+const _lastBubbleMs = {};
+const _BUBBLE_MAX   = 3;    // 屏幕上最多同时存在的 emoji 数量
+let   _activeBubbles = 0;
+
+function _isIdleScreen() {
+    return currentScreen === 'onboarding' || currentScreen === 'welcome' ||
+           currentScreen === 'rest'       || currentScreen === 'complete';
+}
+
+function _tryBubble(key) {
+    const cfg = _BUBBLE_CFG[key];
+    if (!cfg) return;
+    if (_activeBubbles >= _BUBBLE_MAX) return;   // 已达上限，不再新增
+    const now = Date.now();
+    if (now - (_lastBubbleMs[key] || 0) < cfg.interval) return;
+    _lastBubbleMs[key] = now;
+    _spawnBubble(cfg.emoji);
+}
+
+function _spawnBubble(emoji) {
+    const mon  = document.getElementById('monitor-window');
+    const rect = mon.getBoundingClientRect();
+    // Spread horizontally across the monitor top edge
+    const x     = rect.left + rect.width  * (0.1 + Math.random() * 0.8);
+    const y     = rect.top  + rect.height * 0.15;
+    const drift = (Math.random() * 90 - 45) + 'px';
+    const el    = document.createElement('div');
+    el.className   = 'emoji-bubble';
+    el.textContent = emoji;
+    el.style.left  = x + 'px';
+    el.style.top   = y + 'px';
+    el.style.setProperty('--drift', drift);
+    document.body.appendChild(el);
+    _activeBubbles++;
+    setTimeout(() => { el.remove(); _activeBubbles--; }, 2500);
+}
+
+// ─ Hand gesture detectors ─────────────────────
+function _detectVSign(lm) {
+    // Index + middle extended upward; ring + pinky curled
+    return lm[8].y  < lm[6].y  && lm[6].y  < lm[5].y  &&
+           lm[12].y < lm[10].y && lm[10].y < lm[9].y  &&
+           lm[16].y > lm[14].y &&
+           lm[20].y > lm[18].y;
+}
+
+function _detectThumbsUp(lm) {
+    // Thumb tip well above its MCP; all other finger tips below their PIPs
+    return lm[4].y  < lm[2].y  - 0.04 &&
+           lm[8].y  > lm[6].y  &&
+           lm[12].y > lm[10].y &&
+           lm[16].y > lm[14].y &&
+           lm[20].y > lm[18].y;
+}
+
+function _detectOKSign(lm) {
+    // Thumb tip close to index tip; middle/ring/pinky extended
+    const d = Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y);
+    return d < 0.07 &&
+           lm[12].y < lm[10].y &&
+           lm[16].y < lm[14].y &&
+           lm[20].y < lm[18].y;
+}
+
+// ─ Pose gesture detectors ─────────────────────
+function _detectBigV(poseLm) {
+    // Both wrists raised above their shoulders and spread wide
+    if (!poseLm) return false;
+    const lw = poseLm[15], rw = poseLm[16];
+    const ls = poseLm[11], rs = poseLm[12];
+    if (!lw || !rw || !ls || !rs) return false;
+    return lw.y < ls.y - 0.08 &&
+           rw.y < rs.y - 0.08 &&
+           Math.abs(lw.x - rw.x) > 0.35;
+}
+
+function _detectHeart(poseLm) {
+    // Both wrists above the nose and close together
+    if (!poseLm) return false;
+    const lw = poseLm[15], rw = poseLm[16], nose = poseLm[0];
+    if (!lw || !rw || !nose) return false;
+    const dist = Math.hypot(lw.x - rw.x, lw.y - rw.y);
+    return lw.y < nose.y - 0.02 &&
+           rw.y < nose.y - 0.02 &&
+           dist < 0.22;
+}
+
+function _detectCrossArms(poseLm) {
+    // Both wrists have switched to the opposite shoulder's side (X-shaped arms)
+    if (!poseLm) return false;
+    const lw = poseLm[15], rw = poseLm[16];
+    const ls = poseLm[11], rs = poseLm[12];
+    if (!lw || !rw || !ls || !rs) return false;
+    if (Math.abs(ls.x - rs.x) < 0.1) return false; // shoulders not visible enough
+    const center      = (ls.x + rs.x) / 2;
+    // Each wrist must be on the opposite side from its own shoulder
+    const lwCrossed   = (lw.x - center) * (ls.x - center) < 0;
+    const rwCrossed   = (rw.x - center) * (rs.x - center) < 0;
+    // Wrists should be at roughly chest/belly level (not overhead)
+    const avgShoulder = (ls.y + rs.y) / 2;
+    const lwAtChest   = lw.y > avgShoulder - 0.08 && lw.y < avgShoulder + 0.45;
+    const rwAtChest   = rw.y > avgShoulder - 0.08 && rw.y < avgShoulder + 0.45;
+    return lwCrossed && rwCrossed && lwAtChest && rwAtChest;
+}
+
+// ─ Arm circle state ───────────────────────────
+const _CIRCLE_HIST   = { 15: [], 16: [] };  // per-wrist history (pose lm index)
+const _CIRCLE_WIN_MS = 2200;                // sliding window length
+const _CIRCLE_MIN_R  = 0.08;               // min average radius (normalized)
+
+function _updateCircleHist(idx, x, y) {
+    const now  = Date.now();
+    const hist = _CIRCLE_HIST[idx];
+    hist.push({ x, y, t: now });
+    const cutoff = now - _CIRCLE_WIN_MS;
+    while (hist.length && hist[0].t < cutoff) hist.shift();
+}
+
+function _isCircle(hist) {
+    if (hist.length < 15) return false;
+    // Centroid
+    let cx = 0, cy = 0;
+    for (const p of hist) { cx += p.x; cy += p.y; }
+    cx /= hist.length;  cy /= hist.length;
+    // Average radius must be significant
+    let r = 0;
+    for (const p of hist) r += Math.hypot(p.x - cx, p.y - cy);
+    if (r / hist.length < _CIRCLE_MIN_R) return false;
+    // All 4 quadrants around centroid must be visited
+    const q = new Set();
+    for (const p of hist) {
+        const a = Math.atan2(p.y - cy, p.x - cx);
+        q.add(Math.floor((a + Math.PI) / (Math.PI / 2)));
+    }
+    return q.size >= 4;
+}
+
+function _detectArmCircle(poseLm) {
+    if (!poseLm) return false;
+    const lw = poseLm[15], rw = poseLm[16];
+    if (lw) _updateCircleHist(15, lw.x, lw.y);
+    if (rw) _updateCircleHist(16, rw.x, rw.y);
+    return _isCircle(_CIRCLE_HIST[15]) || _isCircle(_CIRCLE_HIST[16]);
+}
+
+function _checkIdleHandGestures(lm) {
+    if (_detectVSign(lm))    { _tryBubble('v_sign');    return; }
+    if (_detectThumbsUp(lm)) { _tryBubble('thumbs_up'); return; }
+    if (_detectOKSign(lm))   { _tryBubble('ok_sign'); }
+}
+
+function _checkIdlePoseGestures(poseLm) {
+    if (_detectHeart(poseLm))      { _tryBubble('heart');      return; }
+    if (_detectBigV(poseLm))       { _tryBubble('big_v');       return; }
+    if (_detectCrossArms(poseLm))  { _tryBubble('cross_arms');  return; }
+    if (_detectArmCircle(poseLm))  { _tryBubble('arm_circle'); }
 }
 
 /* ═══════════════════════════════════════════════
@@ -1036,6 +1615,7 @@ function processWipeGesture(lm) {
 
             if (!wipeComplete && wipePercent >= WIPE_TARGET) {
                 wipeComplete = true;
+                logExercise('wipe_glass', 1); // 记录本次完成
                 document.getElementById('tip-box').textContent = '🎉 擦干净了！太棒了！';
                 setTimeout(() => advanceExercise(), 800);
             }
@@ -1059,6 +1639,7 @@ function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => {
         s.classList.toggle('hidden', s.id !== id);
     });
+    if (id === 'screen-welcome') refreshCardReps();
 }
 
 /* ═══════════════════════════════════════════════
@@ -1112,12 +1693,13 @@ function loadExercise(idx) {
     document.getElementById('ring-fg').style.strokeDashoffset  = CIRCUMFERENCE;
     document.getElementById('rep-count').style.color  = ex.color;
     document.getElementById('rep-count').dataset.wipePct = '0';
+    currentExReps = getCurrentReps(ex.id);
     if (ex.id === 'wipe_glass') {
         document.getElementById('rep-count').textContent = '0%';
         document.getElementById('rep-goal').textContent  = `/ ${WIPE_TARGET}%`;
     } else {
         document.getElementById('rep-count').textContent = '0';
-        document.getElementById('rep-goal').textContent  = `/ ${ex.reps}`;
+        document.getElementById('rep-goal').textContent  = `/ ${currentExReps}`;
     }
 
     // Tip
@@ -1170,11 +1752,12 @@ function countRep() {
     countEl.classList.add('pop');
 
     // Ring progress
-    const progress = Math.min(currentReps / ex.reps, 1);
+    const progress = Math.min(currentReps / currentExReps, 1);
     document.getElementById('ring-fg').style.strokeDashoffset =
         CIRCUMFERENCE * (1 - progress);
 
-    if (currentReps >= ex.reps) {
+    if (currentReps >= currentExReps) {
+        logExercise(ex.id, currentExReps); // 记录本次完成
         setTimeout(() => advanceExercise(), 500);
     }
 }
@@ -1182,7 +1765,7 @@ function countRep() {
 function manualCount() {
     if (currentScreen !== 'exercise') return;
     if (EXERCISES[currentExIdx].id === 'wipe_glass') return; // 面积模式不支持手动计数
-    if (currentReps < EXERCISES[currentExIdx].reps) countRep();
+    if (currentReps < currentExReps) countRep();
 }
 
 function advanceExercise() {
@@ -1231,12 +1814,12 @@ function showComplete() {
         document.getElementById('complete-emoji').textContent  = ex.icon;
         document.getElementById('complete-title').textContent  = `${ex.name} · 完成！`;
         document.getElementById('stat-reps').textContent =
-            ex.id === 'wipe_glass' ? wipePercent + '%' : ex.reps;
+            ex.id === 'wipe_glass' ? wipePercent + '%' : currentExReps;
         document.getElementById('stat-exs').textContent  = 1;
     } else {
         document.getElementById('complete-emoji').textContent  = '🎉';
         document.getElementById('complete-title').textContent  = '全程完成！太棒了';
-        document.getElementById('stat-reps').textContent = EXERCISES.reduce((s, e) => s + e.reps, 0);
+        document.getElementById('stat-reps').textContent = EXERCISES.reduce((s, e) => s + getCurrentReps(e.id), 0);
         document.getElementById('stat-exs').textContent  = EXERCISES.length;
     }
     document.getElementById('stat-mins').textContent = Math.max(elapsed, 1);
@@ -1294,18 +1877,19 @@ function onResults(results) {
         }
     });
 
-    // 举手过头：叠加 Pose 骨架（肩臂联动可视化）
-    if (EXERCISES[currentExIdx]?.id === 'overhead' &&
-        latestPoseLandmarks && window.drawConnectors && window.POSE_CONNECTIONS) {
-        drawConnectors(hCtx, latestPoseLandmarks, window.POSE_CONNECTIONS,
-            { color: skeletonColor, lineWidth: 2 });
-        drawLandmarks(hCtx, latestPoseLandmarks,
-            { color: skeletonColor, radius: 2, lineWidth: 1 });
+    // 举手过头：叠加 Pose 骨架（肩臂联动 + 头部轮廓）
+    if (EXERCISES[currentExIdx]?.id === 'overhead' && latestPoseLandmarks) {
+        drawPoseWithHeadOutline(hCtx, latestPoseLandmarks, skeletonColor);
     }
 
     // 更新手部状态指示器
     const labels = allHandedness.map(h => h?.label).filter(Boolean);
     updateHandStatus(allLandmarks.length, labels);
+
+    // Idle-screen emoji gestures (welcome / onboarding / rest / complete)
+    if (_isIdleScreen() && allLandmarks.length > 0) {
+        _checkIdleHandGestures(allLandmarks[0]);
+    }
 
     if (currentScreen !== 'exercise' || !detector) return;
 
@@ -1397,7 +1981,68 @@ function handleOverheadDetection(handsMap) {
     } else if (overheadState === 'both_high' && bothLow) {
         overheadState    = 'idle';
         overheadCooldown = 25;
-        if (currentReps < EXERCISES[currentExIdx].reps) countRep();
+        if (currentReps < currentExReps) countRep();
+    }
+}
+
+/* ═══════════════════════════════════════════════
+   POSE SKELETON — 去除脸部细节，改用头部轮廓圆
+═══════════════════════════════════════════════ */
+// 脸部微特征点索引（眼、鼻、嘴）—— 保留耳朵(7,8)
+const FACE_DETAIL_IDX = new Set([0, 1, 2, 3, 4, 5, 6, 9, 10]);
+
+function drawPoseWithHeadOutline(ctx, poseLm, color) {
+    if (!poseLm || !window.drawConnectors || !window.POSE_CONNECTIONS) return;
+
+    // 过滤掉纯脸部连线（两端都在脸部微特征集合里）
+    const bodyConns = window.POSE_CONNECTIONS.filter(conn => {
+        const a = Array.isArray(conn) ? conn[0] : conn.start;
+        const b = Array.isArray(conn) ? conn[1] : conn.end;
+        return !(FACE_DETAIL_IDX.has(a) && FACE_DETAIL_IDX.has(b));
+    });
+    drawConnectors(ctx, poseLm, bodyConns, { color, lineWidth: 2 });
+
+    // 绘制身体关键点（将脸部微特征的 visibility 清零，使其不渲染）
+    const maskedLm = poseLm.map((lm, i) =>
+        FACE_DETAIL_IDX.has(i) ? { ...lm, visibility: 0 } : lm
+    );
+    drawLandmarks(ctx, maskedLm, { color, radius: 2, lineWidth: 1 });
+
+    // 绘制头部椭圆轮廓 + 颈部连线
+    const nose = poseLm[0], lEar = poseLm[7], rEar = poseLm[8];
+    const lShoulder = poseLm[11], rShoulder = poseLm[12];
+    if (nose && lEar && rEar) {
+        const W = ctx.canvas.width, H = ctx.canvas.height;
+        // 头部中心：耳间中点偏鼻子方向
+        const cx = ((lEar.x + rEar.x) / 2 * 0.55 + nose.x * 0.45) * W;
+        const cy = ((lEar.y + rEar.y) / 2 * 0.60 + nose.y * 0.40) * H;
+        // 椭圆半轴：基于耳间距
+        const earDist = Math.hypot((lEar.x - rEar.x) * W, (lEar.y - rEar.y) * H);
+        const rx = earDist * 0.62;
+        const ry = earDist * 0.78;
+        // 头部倾斜角（颈部活动时跟随头部倾斜）
+        const tilt = Math.atan2((rEar.y - lEar.y) * H, (rEar.x - lEar.x) * W);
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, tilt, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 颈部连线：头椭圆底部 → 双肩中点
+        if (lShoulder && rShoulder) {
+            const neckX = cx + Math.sin(tilt) * ry * -1;
+            const neckY = cy + Math.cos(tilt) * ry;
+            const shoulderX = ((lShoulder.x + rShoulder.x) / 2) * W;
+            const shoulderY = ((lShoulder.y + rShoulder.y) / 2) * H;
+            ctx.beginPath();
+            ctx.moveTo(neckX, neckY);
+            ctx.lineTo(shoulderX, shoulderY);
+            ctx.stroke();
+        }
+        ctx.restore();
     }
 }
 
@@ -1407,6 +2052,9 @@ function handleOverheadDetection(handsMap) {
 function onPoseResults(results) {
     const lm = results.poseLandmarks || null;
 
+    // Idle-screen pose gesture detection (big V arms / heart above head)
+    if (lm && _isIdleScreen()) _checkIdlePoseGestures(lm);
+
     // 举手过头：只缓存 Pose 骨架，由 onResults 统一绘制（保留手部骨架）
     if (EXERCISES[currentExIdx]?.id === 'overhead') {
         latestPoseLandmarks = lm;
@@ -1415,13 +2063,8 @@ function onPoseResults(results) {
 
     hCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
 
-    // 绘制身体骨架
-    if (lm && window.drawConnectors && window.POSE_CONNECTIONS) {
-        drawConnectors(hCtx, lm, window.POSE_CONNECTIONS,
-            { color: skeletonColor, lineWidth: 2 });
-        drawLandmarks(hCtx, lm,
-            { color: skeletonColor, radius: 2, lineWidth: 1 });
-    }
+    // 绘制身体骨架（头部轮廓圆 + 无脸部细节）
+    drawPoseWithHeadOutline(hCtx, lm, skeletonColor);
 
     // 更新状态指示器（复用 hand-status 区域显示身体检测状态）
     const statusEl = document.getElementById('hand-status');
@@ -1473,7 +2116,7 @@ function handleNeckDetection(poseLm) {
             neckTiltState = 'left';
             if (neckLastSide === 'right') {
                 neckCooldown = 20;
-                if (currentReps < EXERCISES[currentExIdx].reps) countRep();
+                if (currentReps < currentExReps) countRep();
             }
             neckLastSide = 'left';
         }
@@ -1484,7 +2127,7 @@ function handleNeckDetection(poseLm) {
             neckTiltState = 'right';
             if (neckLastSide === 'left') {
                 neckCooldown = 20;
-                if (currentReps < EXERCISES[currentExIdx].reps) countRep();
+                if (currentReps < currentExReps) countRep();
             }
             neckLastSide = 'right';
         }
@@ -1496,50 +2139,336 @@ function handleNeckDetection(poseLm) {
     document.getElementById('tip-box').textContent = tip;
 }
 
+/* ═══════════════════════════════════════════════
+   USER & LOG — localStorage
+═══════════════════════════════════════════════ */
+const USER_KEY = 'deskbreak_user';
+const LOG_KEY  = 'deskbreak_log';
+
+function getUser() {
+    try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch { return null; }
+}
+function saveUser(u) { localStorage.setItem(USER_KEY, JSON.stringify(u)); }
+function getLog()    { try { return JSON.parse(localStorage.getItem(LOG_KEY)) || {}; } catch { return {}; } }
+function saveLog(l)  { localStorage.setItem(LOG_KEY, JSON.stringify(l)); }
+function todayKey()  { return new Date().toISOString().slice(0, 10); }
+
+function logExercise(exId, reps) {
+    const log = getLog();
+    const today = todayKey();
+    if (!log[today]) log[today] = {};
+    const entry = log[today][exId];
+    if (!entry) {
+        log[today][exId] = { reps, sets: 1 };
+    } else if (typeof entry === 'number') {
+        // 兼容旧格式：迁移为新格式
+        log[today][exId] = { reps, sets: 2 };
+    } else {
+        log[today][exId] = { reps, sets: entry.sets + 1 };
+    }
+    saveLog(log);
+}
+
+/* ── AVATAR BUTTON ── */
+function refreshAvatarBtn() {
+    const user = getUser();
+    const btn = document.getElementById('avatar-btn');
+    if (!user) { btn.style.display = 'none'; return; }
+    btn.style.display = 'flex';
+    btn.textContent = user.name.trim().charAt(0);
+    btn.className = user.gender === 'female' ? 'female' : user.gender === 'male' ? 'male' : '';
+}
+
+/* ── ONBOARDING ── */
+let selectedGender    = '';
+let selectedIntensity = 'moderate'; // 默认强度
+
+function selectGender(g) {
+    selectedGender = g;
+    ['male', 'female', 'other'].forEach(x => {
+        document.getElementById('gc-' + x).classList.toggle('selected', x === g);
+    });
+}
+
+function selectIntensity(level) {
+    selectedIntensity = level;
+    INTENSITY_LEVELS.forEach(l => {
+        document.getElementById('ic-' + l.id)?.classList.toggle('selected', l.id === level);
+    });
+}
+
+function completeOnboarding() {
+    const nameEl = document.getElementById('onboard-name');
+    const name = nameEl.value.trim();
+
+    if (!selectedGender) {
+        const row = document.getElementById('gender-row');
+        row.style.animation = 'none';
+        void row.offsetWidth;
+        row.style.animation = 'shake 0.4s ease';
+        return;
+    }
+    if (!name) {
+        nameEl.style.borderColor = '#ff6b6b';
+        nameEl.focus();
+        setTimeout(() => { nameEl.style.borderColor = ''; }, 1500);
+        return;
+    }
+
+    saveUser({ name, gender: selectedGender, intensity: selectedIntensity, createdAt: Date.now() });
+    refreshAvatarBtn();
+    showScreen('screen-welcome');
+}
+
+/* ── PROFILE DRAWER ── */
+function toggleProfile() {
+    document.getElementById('profile-drawer').classList.contains('open')
+        ? closeProfile() : openProfile();
+}
+
+function openProfile() {
+    const user = getUser();
+    if (!user) return;
+
+    const genderMap = { male: '♂ 男性', female: '♀ 女性', other: '🌈 其他' };
+    const avatar = document.getElementById('d-avatar');
+    avatar.textContent = user.name.trim().charAt(0);
+    avatar.className = 'drawer-avatar-lg' + (user.gender === 'female' ? ' female' : user.gender === 'male' ? ' male' : '');
+    document.getElementById('d-username').textContent = user.name;
+    document.getElementById('d-usersub').textContent  = genderMap[user.gender] || '';
+
+    // Render intensity pills
+    const pillsHtml = INTENSITY_LEVELS.map(l =>
+        `<button class="intensity-pill${user.intensity === l.id ? ' selected' : ''}"
+                 data-level="${l.id}" onclick="setUserIntensity('${l.id}')">
+            ${l.emoji} ${l.label}
+            <small>${l.desc} — ${Object.entries(l.reps).filter(([id]) => id !== 'wipe_glass').map(([id, r]) => {
+                const ex = EXERCISES.find(e => e.id === id);
+                return ex ? `${ex.icon}×${r}` : '';
+            }).join(' ')}</small>
+        </button>`
+    ).join('');
+    document.getElementById('d-intensity-pills').innerHTML = pillsHtml;
+
+    document.getElementById('log-content').innerHTML = renderLog();
+    document.getElementById('profile-overlay').classList.add('open');
+    document.getElementById('profile-drawer').classList.add('open');
+}
+
+function refreshCardReps() {
+    document.querySelectorAll('.ex-card-reps[data-ex]').forEach(span => {
+        const exId = span.dataset.ex;
+        if (exId === 'wipe_glass') return;
+        if (exId === 'neck_tilt') {
+            span.textContent = `× ${getCurrentReps('neck_tilt')} 次 \u00a0·\u00a0 头部左右交替倾斜`;
+        } else {
+            span.textContent = `× ${getCurrentReps(exId)} 次`;
+        }
+    });
+}
+
+function setUserIntensity(levelId) {
+    const user = getUser();
+    if (!user) return;
+    user.intensity = levelId;
+    saveUser(user);
+    // 更新 pill 选中状态
+    document.querySelectorAll('.intensity-pill').forEach(p => {
+        p.classList.toggle('selected', p.dataset.level === levelId);
+    });
+    // 刷新首页卡片次数
+    refreshCardReps();
+}
+
+function closeProfile() {
+    document.getElementById('profile-overlay').classList.remove('open');
+    document.getElementById('profile-drawer').classList.remove('open');
+}
+
+function renderLog() {
+    const log = getLog();
+    const rows = [];
+    const now = new Date();
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const key  = d.toISOString().slice(0, 10);
+        const data = log[key];
+        if (!data || !Object.keys(data).length) continue;
+        const label = i === 0 ? '今天' : i === 1 ? '昨天' : `${d.getMonth() + 1}月${d.getDate()}日`;
+        const chips = Object.entries(data).map(([id, entry]) => {
+            const ex = EXERCISES.find(e => e.id === id);
+            if (!ex) return '';
+            let repStr;
+            if (ex.id === 'wipe_glass') {
+                const sets = typeof entry === 'number' ? 1 : entry.sets;
+                repStr = sets > 1 ? `✓ ×${sets}次` : '✓';
+            } else if (typeof entry === 'number') {
+                repStr = `×${entry}`;  // 旧格式兼容
+            } else {
+                repStr = `×${entry.reps}` + (entry.sets > 1 ? ` ×${entry.sets}组` : '');
+            }
+            return `<span class="log-chip" style="border-color:${ex.color}50;color:${ex.color}">${ex.icon} ${ex.name} ${repStr}</span>`;
+        }).join('');
+        rows.push(`<div class="log-day"><div class="log-day-label">${label}</div><div class="log-day-items">${chips}</div></div>`);
+    }
+    return rows.length
+        ? rows.join('')
+        : '<div class="log-empty">暂无锻炼记录<br>完成第一次训练后会显示在这里 💪</div>';
+}
+
+function clearLog() {
+    if (!confirm('确定要清除所有锻炼记录吗？此操作不可撤销。')) return;
+    localStorage.removeItem(LOG_KEY);
+    document.getElementById('log-content').innerHTML = renderLog();
+}
+
+function logoutUser() {
+    if (!confirm('确定注销账户吗？用户名、锻炼记录等所有数据将被永久删除。')) return;
+    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(LOG_KEY);
+    closeProfile();
+    location.reload();
+}
+
+/* ── EXIT CONFIRM ── */
+function showExitConfirm() {
+    document.getElementById('exit-modal').style.display = 'flex';
+}
+function closeExitModal() {
+    document.getElementById('exit-modal').style.display = 'none';
+}
+function confirmExit() {
+    closeExitModal();
+    hideGlassOverlay();
+    clearTrail();
+    showScreen('screen-welcome');
+}
+
+function _showInitialScreen() {
+    const user = getUser();
+    if (user) {
+        refreshAvatarBtn();
+        showScreen('screen-welcome');
+        refreshCardReps();
+    } else {
+        showScreen('screen-onboarding');
+    }
+}
+
+/* ── Loading step helpers ── */
+function _setLoadStep(id, state, tag) {
+    const el = document.getElementById('lstep-' + id);
+    if (!el) return;
+    el.className = 'load-step ' + state;
+    const dot = el.querySelector('.lstep-dot');
+    if (state === 'loading') dot.innerHTML = '<div class="mini-spin"></div>';
+    else if (state === 'ok')   { dot.innerHTML = '✓'; }
+    else if (state === 'fail') { dot.innerHTML = '✕'; }
+    else                       { dot.innerHTML = ''; }
+    el.querySelector('.lstep-tag').textContent = tag || '';
+}
+
+function _showLoadError(msg) {
+    document.getElementById('load-error-msg').textContent = msg;
+    document.getElementById('load-error-box').style.display = 'flex';
+}
+
+
+
+function _resetLoadUI() {
+    document.getElementById('load-error-box').style.display  = 'none';
+    document.getElementById('load-success-box').style.display = 'none';
+    ['hands', 'pose', 'camera'].forEach(id => _setLoadStep(id, 'pending', '等待中'));
+}
+
 async function initMediaPipe() {
     const HandsClass  = window.Hands;
     const CameraClass = window.Camera;
 
+    // ── Step 0: JS scripts availability ──────────────────
     if (!HandsClass || !CameraClass) {
-        console.warn('MediaPipe not loaded, showing welcome anyway');
-        showScreen('screen-welcome');
-        document.getElementById('monitor-window').style.display = 'none';
+        _setLoadStep('hands',  'fail', '脚本未加载');
+        _setLoadStep('pose',   'fail', '脚本未加载');
+        _setLoadStep('camera', 'fail', '—');
+        _showLoadError('手势检测脚本未就绪，请刷新页面重试。');
         return;
     }
 
-    const hands = new HandsClass({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-    });
-    hands.setOptions({
-        maxNumHands: 2,
-        modelComplexity: 1,
-        minDetectionConfidence: 0.7,
-        minTrackingConfidence: 0.6,
-    });
-    hands.onResults(onResults);
-
-    // 初始化 Pose（用于颈部活动等身体姿态检测）
-    if (window.Pose) {
-        poseInst = new window.Pose({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+    // ── Step 1: Hands model ──────────────────────────────
+    // 注意：MediaPipe 各 Solution 共享 window.createMediapipeSolutionsWasm 等全局变量，
+    // 必须串行初始化，否则并行时互相覆盖全局状态导致失败。
+    _setLoadStep('hands', 'loading', '加载中…');
+    let hands;
+    try {
+        const h = new HandsClass({
+            locateFile: (file) => `https://unpkg.com/@mediapipe/hands/${file}`
         });
-        poseInst.setOptions({
+        h.setOptions({
+            maxNumHands: 2,
             modelComplexity: 1,
-            smoothLandmarks: true,
-            minDetectionConfidence: 0.6,
-            minTrackingConfidence: 0.5,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.6,
         });
-        poseInst.onResults(onPoseResults);
+        h.onResults(onResults);
+        if (typeof h.initialize === 'function') {
+            await h.initialize();
+        }
+        hands = h;
+        _setLoadStep('hands', 'ok', '已就绪');
+    } catch (e) {
+        console.error('[Hands] initialize failed:', e);
+        _setLoadStep('hands', 'fail', '加载失败');
+        _showLoadError('手势识别引擎初始化失败，请刷新页面重试。（详情见控制台）');
+        return;
     }
 
+    // ── Step 2: Pose model (optional) ───────────────────
+    _setLoadStep('pose', window.Pose ? 'loading' : 'fail', window.Pose ? '加载中…' : '脚本未加载');
+    if (window.Pose) {
+        try {
+            const p = new window.Pose({
+                locateFile: (file) => `https://unpkg.com/@mediapipe/pose/${file}`
+            });
+            p.setOptions({
+                modelComplexity: 1,
+                smoothLandmarks: true,
+                minDetectionConfidence: 0.6,
+                minTrackingConfidence: 0.5,
+            });
+            p.onResults(onPoseResults);
+            if (typeof p.initialize === 'function') {
+                await p.initialize();
+            }
+            poseInst = p;
+            _setLoadStep('pose', 'ok', '已就绪');
+        } catch (e) {
+            // Pose 非必须 — 标记失败但继续（颈部/overhead 活动将不可用）
+            console.error('[Pose] initialize failed:', e);
+            _setLoadStep('pose', 'fail', '加载失败');
+            poseInst = null;
+        }
+    }
+
+    // ── Step 3: Camera ───────────────────────────────────
+    // navigator.mediaDevices 仅在安全上下文（HTTPS / localhost）下可用
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        _setLoadStep('camera', 'fail', '需要 HTTPS');
+        _showLoadError('摄像头 API 不可用：请通过 HTTPS 访问本页面。（HTTP 下浏览器禁止访问摄像头）');
+        return;
+    }
+    _setLoadStep('camera', 'loading', '等待授权…');
     const cam = new CameraClass(video, {
         onFrame: async () => {
-            // 根据当前练习选择发送到对应模型
             const exId = EXERCISES[currentExIdx]?.id;
             if (exId === 'neck_tilt' && poseInst) {
                 await poseInst.send({ image: video });
             } else if (exId === 'overhead' && poseInst) {
-                // 举手过头：同时发送到 Hands（掌骨架）和 Pose（肩臂骨架）
+                await Promise.all([
+                    hands.send({ image: video }),
+                    poseInst.send({ image: video }),
+                ]);
+            } else if (_isIdleScreen() && poseInst) {
                 await Promise.all([
                     hands.send({ image: video }),
                     poseInst.send({ image: video }),
@@ -1554,12 +2483,47 @@ async function initMediaPipe() {
     try {
         await cam.start();
         resizeHandCanvas();
-        showScreen('screen-welcome');
+        _setLoadStep('camera', 'ok', '已就绪');
+        // 短暂展示成功状态后过场进入主界面
+        document.getElementById('load-success-box').style.display = 'flex';
+        setTimeout(_showInitialScreen, 900);
     } catch (e) {
         console.warn('Camera failed:', e);
         document.getElementById('monitor-window').style.display = 'none';
-        showScreen('screen-welcome');
+        const isDenied = e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError';
+        if (isDenied) {
+            _setLoadStep('camera', 'fail', '权限被拒绝');
+            showCameraModal();
+        } else {
+            _setLoadStep('camera', 'fail', '启动失败');
+            _showLoadError('摄像头启动失败，请确认设备摄像头可用后重试。');
+        }
     }
+}
+
+function retryModelLoad() {
+    poseInst = null;
+    _resetLoadUI();
+    initMediaPipe();
+}
+
+
+function showCameraModal() {
+    document.getElementById('screen-loading').classList.add('hidden');
+    document.getElementById('camera-modal').style.display = 'flex';
+}
+function hideCameraModal() {
+    document.getElementById('camera-modal').style.display = 'none';
+}
+async function retryCameraPermission() {
+    hideCameraModal();
+    _resetLoadUI();
+    document.getElementById('screen-loading').classList.remove('hidden');
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach(t => t.stop());
+    } catch (_) { /* ignore */ }
+    initMediaPipe();
 }
 
 /* ═══════════════════════════════════════════════

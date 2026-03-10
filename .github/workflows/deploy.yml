@@ -1,0 +1,84 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.TENCENT_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 43.162.124.194 >> ~/.ssh/known_hosts
+
+      - name: Prepare server directory
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@43.162.124.194 "mkdir -p /opt/snowboy"
+
+      - name: Deploy files
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/id_ed25519" \
+            dist/ \
+            root@43.162.124.194:/opt/snowboy/
+
+      - name: Configure Nginx
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@43.162.124.194 python3 << 'PYEOF'
+          import subprocess
+
+          CONF = "/www/server/panel/vhost/nginx/deskbreak.onflower.cn.conf"
+          SNOWBOY_BLOCK = """
+              # snowboy
+              location /snowboy {
+                  alias /opt/snowboy/;
+                  index index.html;
+                  try_files $uri $uri/ /snowboy/index.html;
+              }
+
+              location ~* /snowboy/(\\.git|\\.env|\\.htaccess|\\.svn|LICENSE|README\\.md) {
+                  deny all;
+              }
+          """
+
+          with open(CONF, "r") as f:
+              content = f.read()
+
+          if "location /snowboy" in content:
+              print("Nginx snowboy config already exists, skipping")
+          else:
+              # 在最后一个 } 之前插入 snowboy 块
+              last_brace = content.rfind("}")
+              new_content = content[:last_brace] + SNOWBOY_BLOCK + "\n}"
+              with open(CONF, "w") as f:
+                  f.write(new_content)
+              print("Nginx config updated")
+
+          result = subprocess.run(["nginx", "-t"], capture_output=True, text=True)
+          if result.returncode != 0:
+              print(result.stderr)
+              raise SystemExit("nginx -t failed")
+
+          subprocess.run(["systemctl", "reload", "nginx"], check=True)
+          print("Nginx reloaded")
+          PYEOF
+
