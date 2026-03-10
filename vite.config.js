@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  base: '/snowboy/',
+  base: '/deskbreak/',
   build: {
     rollupOptions: {
       output: {
