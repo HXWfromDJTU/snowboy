@@ -5,10 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>DeskBreak — 上班族放松操</title>
 
-    <script src="/mediapipe/hands/hands.js"></script>
-    <script src="/mediapipe/pose/pose.js"></script>
-    <script src="/mediapipe/drawing_utils/drawing_utils.js"></script>
-    <script src="/mediapipe/camera_utils/camera_utils.js"></script>
+    <!-- MediaPipe & TF.js scripts are loaded lazily in initMediaPipe() -->
 
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -89,6 +86,10 @@
         .ex-card-name { font-size: 0.85rem; font-weight: 700; }
         .ex-card-reps { font-size: 0.72rem; color: rgba(255,255,255,0.45); }
         .ex-card-hint { font-size: 0.62rem; color: rgba(255,255,255,0.25); margin-top: 2px; letter-spacing: 0.02em; }
+        .ex-card--pose-pending { opacity: 0.45; cursor: default; }
+        .ex-card--pose-pending:hover { transform: none !important; background: rgba(255,255,255,0.05) !important; }
+        .ex-card--pose-pending:active { transform: none !important; }
+        .ex-card--pose-pending .ex-card-hint { color: rgba(255,152,0,0.6) !important; }
         .btn-combo {
             width: 100%;
             max-width: 400px;
@@ -365,6 +366,67 @@
             width: 100%; height: 100%;
             transform: scaleX(-1);
         }
+
+        /* ── MONITOR DRAG & SIZE ── */
+        #monitor-window { cursor: grab; }
+        #monitor-window.dragging { cursor: grabbing; transition: none !important; }
+        #monitor-window.size-lg { width: 400px; height: 300px; }
+        #monitor-controls {
+            position: absolute;
+            top: 5px; right: 5px;
+            display: flex;
+            gap: 3px;
+            z-index: 5;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+        }
+        #monitor-window:hover #monitor-controls {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        @media (pointer: coarse) {
+            #monitor-controls { opacity: 1; pointer-events: auto; }
+            #monitor-window { cursor: default; }
+        }
+        .mon-btn {
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(0,0,0,0.6);
+            color: rgba(255,255,255,0.65);
+            font-size: 10px; font-weight: 600;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(4px);
+            line-height: 1;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        .mon-btn:hover { background: rgba(255,255,255,0.15); }
+        .mon-btn.active {
+            background: rgba(0,229,255,0.2);
+            border-color: rgba(0,229,255,0.5);
+            color: #00e5ff;
+        }
+        #mon-btn-lg { display: none; }
+        @media (min-width: 768px) { #mon-btn-lg { display: flex; } }
+        #monitor-restore {
+            position: fixed;
+            bottom: 20px; left: 20px;
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.65);
+            border: 1px solid rgba(0,229,255,0.35);
+            color: rgba(255,255,255,0.7);
+            font-size: 15px;
+            cursor: pointer;
+            display: none; align-items: center; justify-content: center;
+            z-index: 20;
+            backdrop-filter: blur(6px);
+            transition: background 0.2s;
+        }
+        #monitor-restore:hover { background: rgba(0,229,255,0.15); }
+        #monitor-restore.visible { display: flex; }
 
         /* ── OVERLAYS ── */
         #particle-canvas {
@@ -648,19 +710,11 @@
     <p style="color:rgba(255,255,255,0.28);font-size:0.75rem;margin-bottom:28px;letter-spacing:0.08em">正在加载运动识别引擎</p>
 
     <div id="load-steps">
-        <div class="load-step pending" id="lstep-hands">
+        <div class="load-step pending" id="lstep-model">
             <div class="lstep-dot"></div>
             <div class="lstep-info">
-                <div class="lstep-name">手势识别引擎</div>
-                <div class="lstep-sub">MediaPipe Hands</div>
-            </div>
-            <span class="lstep-tag">等待中</span>
-        </div>
-        <div class="load-step pending" id="lstep-pose">
-            <div class="lstep-dot"></div>
-            <div class="lstep-info">
-                <div class="lstep-name">姿态识别引擎</div>
-                <div class="lstep-sub">MediaPipe Pose</div>
+                <div class="lstep-name">模型资源</div>
+                <div class="lstep-sub">Hands · Pose</div>
             </div>
             <span class="lstep-tag">等待中</span>
         </div>
@@ -754,7 +808,7 @@
             <span class="ex-card-reps" data-ex="hand_circle">× 10 次</span>
             <span class="ex-card-hint">点击单独练习</span>
         </div>
-        <div class="ex-card" style="border-color:rgba(0,188,212,0.35)" onclick="startSingle(2)">
+        <div id="ex-card-overhead" class="ex-card" style="border-color:rgba(0,188,212,0.35)" onclick="startSingle(2)">
             <span class="ex-card-icon">🙌</span>
             <span class="ex-card-name" style="color:#00bcd4">举手过头</span>
             <span class="ex-card-reps" data-ex="overhead">× 12 次</span>
@@ -767,7 +821,7 @@
             <span class="ex-card-hint">点击单独练习</span>
         </div>
         <!-- 颈部活动：全宽，使用身体识别，与其他手部项目有差异 -->
-        <div class="ex-card" style="border-color:rgba(255,152,0,0.4); grid-column:1/-1; flex-direction:row; align-items:center; gap:14px" onclick="startSingle(4)">
+        <div id="ex-card-neck_tilt" class="ex-card" style="border-color:rgba(255,152,0,0.4); grid-column:1/-1; flex-direction:row; align-items:center; gap:14px" onclick="startSingle(4)">
             <span class="ex-card-icon" style="font-size:2rem;flex-shrink:0">🤸</span>
             <div style="flex:1">
                 <div class="ex-card-name" style="color:#ff9800">颈部活动</div>
@@ -865,7 +919,13 @@
 <div id="monitor-window">
     <video id="webcam-raw" playsinline muted></video>
     <canvas id="hand-canvas"></canvas>
+    <div id="monitor-controls">
+        <button class="mon-btn active" id="mon-btn-sm" title="小">S</button>
+        <button class="mon-btn" id="mon-btn-lg" title="大">L</button>
+        <button class="mon-btn" id="mon-btn-hide" title="隐藏">✕</button>
+    </div>
 </div>
+<button id="monitor-restore" title="显示摄像头">📷</button>
 
 <!-- AVATAR BUTTON (top-right, z-200) -->
 <button id="avatar-btn" onclick="toggleProfile()">?</button>
@@ -913,6 +973,30 @@
 
 <script>
 'use strict';
+
+/* ═══════════════════════════════════════════════
+   LAZY SCRIPT LOADER
+═══════════════════════════════════════════════ */
+const CDN = 'https://unpkg.com';
+const SCRIPT_URLS = {
+    hands:    `${CDN}/@mediapipe/hands@0.4.1675469240/hands.js`,
+    drawing:  `${CDN}/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js`,
+    camera:   `${CDN}/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js`,
+    tfjs:     `${CDN}/@tensorflow/tfjs@4.22.0/dist/tf.min.js`,
+    poseDet:  `${CDN}/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js`,
+    pose:     `${CDN}/@mediapipe/pose@0.5.1675469404/pose.js`,  // 备选：MediaPipe Pose lite
+};
+
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error(`Failed to load: ${src}`));
+        document.head.appendChild(s);
+    });
+}
 
 /* ═══════════════════════════════════════════════
    EXERCISES CONFIG
@@ -969,7 +1053,98 @@ let neckLastSide  = null;     // 'left' | 'right' | null — last side reached
 let neckCooldown  = 0;
 
 // Pose 实例（全局，用于颈部活动等身体动作）
-let poseInst = null;
+let poseInst  = null;
+let poseReady  = false; // Pose 后台加载完成标志
+let poseFailed = false; // 所有 Pose 备选均失败
+
+// Hands 实例与加载 Promise（后台预加载，_runLoadingScreen 等待它）
+let _handsInst        = null;
+let _handsInitPromise = null;
+
+const POSE_DEPENDENT_CARDS = ['ex-card-overhead', 'ex-card-neck_tilt'];
+
+function _updatePoseCards() {
+    POSE_DEPENDENT_CARDS.forEach(id => {
+        const card = document.getElementById(id);
+        if (!card) return;
+        const hint = card.querySelector('.ex-card-hint');
+        if (poseReady) {
+            card.classList.remove('ex-card--pose-pending');
+            hint.textContent = id === 'ex-card-neck_tilt' ? '点击单独练习 →' : '点击单独练习';
+        } else if (poseFailed) {
+            card.classList.add('ex-card--pose-pending');
+            hint.textContent = '姿态引擎暂不可用';
+        } else {
+            card.classList.add('ex-card--pose-pending');
+            hint.textContent = '姿态引擎加载中，请稍后';
+        }
+    });
+}
+
+/* ═══════════════════════════════════════════════
+   MOVENET POSE ADAPTER
+   将 MoveNet 输出适配为 MediaPipe poseLandmarks 格式
+   MoveNet 17点 → MediaPipe 33点（稀疏映射）
+═══════════════════════════════════════════════ */
+// MoveNet[i] → MediaPipe landmark index
+const MN_TO_MP = [
+    0,    // 0: nose
+    null, // 1: left_eye
+    null, // 2: right_eye
+    7,    // 3: left_ear
+    8,    // 4: right_ear
+    11,   // 5: left_shoulder
+    12,   // 6: right_shoulder
+    13,   // 7: left_elbow
+    14,   // 8: right_elbow
+    15,   // 9: left_wrist
+    16,   // 10: right_wrist
+    23,   // 11: left_hip
+    24,   // 12: right_hip
+    25,   // 13: left_knee
+    26,   // 14: right_knee
+    27,   // 15: left_ankle
+    28,   // 16: right_ankle
+];
+
+// 骨架连线（使用 MediaPipe landmark 索引）
+const MOVENET_BODY_CONNECTIONS = [
+    [11, 12], [11, 13], [13, 15],  // 左臂
+    [12, 14], [14, 16],            // 右臂
+    [11, 23], [12, 24], [23, 24],  // 躯干
+];
+
+class MoveNetPoseAdapter {
+    constructor() {
+        this._detector = null;
+        this._callback = null;
+    }
+    onResults(cb) { this._callback = cb; }
+    async initialize() {
+        await tf.ready();
+        console.log('[Pose/MoveNet] tf.ready(), creating detector...');
+        this._detector = await poseDetection.createDetector(
+            poseDetection.SupportedModels.MoveNet,
+            { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, enableSmoothing: true }
+        );
+        console.log('[Pose/MoveNet] detector created');
+    }
+    async send({ image }) {
+        if (!this._detector || !this._callback) return;
+        const poses = await this._detector.estimatePoses(image);
+        if (!poses.length) { this._callback({ poseLandmarks: null }); return; }
+        const kps = poses[0].keypoints;
+        const W = image.videoWidth || 320, H = image.videoHeight || 240;
+        const lm = new Array(33).fill(null);
+        kps.forEach((kp, i) => {
+            const mpIdx = MN_TO_MP[i];
+            if (mpIdx !== null && kp.score > 0.3) {
+                lm[mpIdx] = { x: kp.x / W, y: kp.y / H, z: 0, visibility: kp.score };
+            }
+        });
+        this._callback({ poseLandmarks: lm });
+    }
+}
 
 // 训练模式
 let singleMode = false; // true = 单项练习，false = 组合训练
@@ -1002,14 +1177,19 @@ class ExerciseDetector {
         let dist = 0;
         [8,12,16,20].forEach(id => dist += Math.hypot(lm[id].x - palm.x, lm[id].y - palm.y));
         const score = dist / 4;
-        if (score < 0.17 && this.state !== 'closed') {
+        if (score < 0.15 && this.state !== 'closed') {
             this.state = 'closed';
-        } else if (score > 0.36 && this.state === 'closed') {
+        } else if (score > 0.38 && this.state === 'closed') {
             this.state = 'open';
             this.cooldown = 18;
             return true;
         }
         return false;
+    }
+    getPhaseHint() {
+        if (this.type !== 'fist_pump') return null;
+        if (this.state === 'closed') return '✓ 握拳！现在张开手掌 🖐';
+        return '请握紧拳头 ✊';
     }
     _handCircle(lm) {
         const wrist = lm[0];
@@ -1639,6 +1819,9 @@ function showScreen(id) {
         s.classList.toggle('hidden', s.id !== id);
     });
     if (id === 'screen-welcome') refreshCardReps();
+    const monVis = id === 'screen-onboarding' ? 'hidden' : '';
+    document.getElementById('monitor-window').style.visibility = monVis;
+    document.getElementById('monitor-restore').style.visibility = monVis;
 }
 
 /* ═══════════════════════════════════════════════
@@ -1653,6 +1836,18 @@ function startSession() {
 }
 
 function startSingle(idx) {
+    const POSE_EX = [2, 4]; // overhead, neck_tilt
+    if (POSE_EX.includes(idx) && !poseReady) {
+        // 姿态引擎未就绪：短暂闪烁提示，不跳转
+        const cardId = idx === 2 ? 'ex-card-overhead' : 'ex-card-neck_tilt';
+        const hint = document.getElementById(cardId)?.querySelector('.ex-card-hint');
+        if (hint && hint.textContent !== '⏳ 姿态引擎加载中…') {
+            const prev = hint.textContent;
+            hint.textContent = '⏳ 姿态引擎加载中…';
+            setTimeout(() => { hint.textContent = prev; }, 2000);
+        }
+        return;
+    }
     ensureAudio();
     singleMode   = true;
     currentExIdx = idx;
@@ -1851,6 +2046,102 @@ function resizeHandCanvas() {
 }
 window.addEventListener('resize', resizeHandCanvas);
 
+/* ── MONITOR SIZE CONTROL ─────────────────────────────────── */
+(function() {
+    const mon     = document.getElementById('monitor-window');
+    const restore = document.getElementById('monitor-restore');
+    const btnSm   = document.getElementById('mon-btn-sm');
+    const btnLg   = document.getElementById('mon-btn-lg');
+    const btnHide = document.getElementById('mon-btn-hide');
+
+    function setMonitorSize(size) {
+        if (size === 'lg' && window.innerWidth < 768) size = 'sm';
+        [btnSm, btnLg, btnHide].forEach(b => b && b.classList.remove('active'));
+        if (size === 'hidden') {
+            mon.style.display = 'none';
+            restore.classList.add('visible');
+        } else {
+            mon.style.display = '';
+            restore.classList.remove('visible');
+            mon.classList.toggle('size-lg', size === 'lg');
+            (size === 'lg' ? btnLg : btnSm)?.classList.add('active');
+            setTimeout(resizeHandCanvas, 50);
+        }
+    }
+
+    btnSm.addEventListener('click',   e => { e.stopPropagation(); setMonitorSize('sm'); });
+    btnLg.addEventListener('click',   e => { e.stopPropagation(); setMonitorSize('lg'); });
+    btnHide.addEventListener('click', e => { e.stopPropagation(); setMonitorSize('hidden'); });
+    restore.addEventListener('click', () => setMonitorSize('sm'));
+
+    window.setMonitorSize = setMonitorSize;
+    btnSm.classList.add('active');
+})();
+
+/* ── MONITOR DRAG ─────────────────────────────────────────── */
+(function() {
+    const mon = document.getElementById('monitor-window');
+    let dragging = false, startX, startY, startLeft, startTop;
+    let longPressTimer = null, touchDragActive = false;
+
+    function startDrag(clientX, clientY) {
+        const rect = mon.getBoundingClientRect();
+        dragging  = true;
+        startX    = clientX; startY    = clientY;
+        startLeft = rect.left; startTop  = rect.top;
+        mon.style.left      = startLeft + 'px';
+        mon.style.top       = startTop  + 'px';
+        mon.style.bottom    = 'auto';
+        mon.style.transform = 'none';
+        mon.classList.add('dragging');
+    }
+
+    function onDragMove(clientX, clientY) {
+        if (!dragging) return;
+        const newLeft = Math.max(0, Math.min(window.innerWidth  - mon.offsetWidth,  startLeft + clientX - startX));
+        const newTop  = Math.max(0, Math.min(window.innerHeight - mon.offsetHeight, startTop  + clientY - startY));
+        mon.style.left = newLeft + 'px';
+        mon.style.top  = newTop  + 'px';
+    }
+
+    function stopDrag() {
+        dragging = false;
+        mon.classList.remove('dragging');
+    }
+
+    // PC mouse
+    mon.addEventListener('mousedown', e => {
+        if (e.target.closest('#monitor-controls')) return;
+        e.preventDefault();
+        startDrag(e.clientX, e.clientY);
+    });
+    document.addEventListener('mousemove', e => { if (dragging) onDragMove(e.clientX, e.clientY); });
+    document.addEventListener('mouseup',   stopDrag);
+
+    // Mobile long-press drag
+    mon.addEventListener('touchstart', e => {
+        if (e.target.closest('#monitor-controls')) return;
+        touchDragActive = false;
+        const t = e.touches[0];
+        longPressTimer = setTimeout(() => {
+            touchDragActive = true;
+            startDrag(t.clientX, t.clientY);
+        }, 500);
+    }, { passive: true });
+
+    mon.addEventListener('touchmove', e => {
+        if (!touchDragActive) { clearTimeout(longPressTimer); return; }
+        e.preventDefault();
+        onDragMove(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: false });
+
+    mon.addEventListener('touchend', () => {
+        clearTimeout(longPressTimer);
+        if (touchDragActive) stopDrag();
+        touchDragActive = false;
+    });
+})();
+
 function onResults(results) {
     hCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
 
@@ -1909,11 +2200,21 @@ function onResults(results) {
     } else {
         // 其他动作：取第一只检测到的手即可
         const lm = allLandmarks[0];
-        if (!lm) return;
+        if (!lm) {
+            if (ex.id === 'fist_pump') {
+                document.getElementById('tip-box').textContent = '请将手放入摄像头范围';
+            }
+            return;
+        }
         if (ex.id === 'hand_circle') {
             drawTrail(lm[0].x, lm[0].y, ex.color);
         }
         const counted = detector.detect(lm);
+        // 握拳松开：根据当前阶段实时更新提示
+        if (ex.id === 'fist_pump') {
+            const hint = detector.getPhaseHint();
+            if (hint) document.getElementById('tip-box').textContent = hint;
+        }
         if (counted && currentReps < ex.reps) countRep();
     }
 }
@@ -1926,6 +2227,15 @@ function updateHandStatus(count, labels) {
     if (count === 0) {
         el.textContent = isOverhead ? '请将双手放入摄像头范围' : '请将手放入摄像头范围';
         el.className = 'hand-status hand-no';
+    } else if (ex?.id === 'fist_pump' && count > 0 && detector) {
+        // 握拳松开：用状态指示器显示当前阶段
+        if (detector.state === 'closed') {
+            el.textContent = '✊ 握拳成功 → 张开手掌';
+            el.className = 'hand-status hand-ok';
+        } else {
+            el.textContent = '🖐 请握紧拳头';
+            el.className = 'hand-status hand-half';
+        }
     } else if (count === 1) {
         const which = labels[0] === 'Left' ? '左' : '右';
         el.textContent = `✓ ${which}手已检测`;
@@ -1991,20 +2301,24 @@ function handleOverheadDetection(handsMap) {
 const FACE_DETAIL_IDX = new Set([0, 1, 2, 3, 4, 5, 6, 9, 10]);
 
 function drawPoseWithHeadOutline(ctx, poseLm, color) {
-    if (!poseLm || !window.drawConnectors || !window.POSE_CONNECTIONS) return;
+    const connections = window.POSE_CONNECTIONS || MOVENET_BODY_CONNECTIONS;
+    if (!poseLm || !window.drawConnectors || !connections) return;
 
     // 过滤掉纯脸部连线（两端都在脸部微特征集合里）
-    const bodyConns = window.POSE_CONNECTIONS.filter(conn => {
+    const bodyConns = connections.filter(conn => {
         const a = Array.isArray(conn) ? conn[0] : conn.start;
         const b = Array.isArray(conn) ? conn[1] : conn.end;
         return !(FACE_DETAIL_IDX.has(a) && FACE_DETAIL_IDX.has(b));
     });
     drawConnectors(ctx, poseLm, bodyConns, { color, lineWidth: 2 });
 
-    // 绘制身体关键点（将脸部微特征的 visibility 清零，使其不渲染）
-    const maskedLm = poseLm.map((lm, i) =>
-        FACE_DETAIL_IDX.has(i) ? { ...lm, visibility: 0 } : lm
-    );
+    // 绘制身体关键点（将脸部微特征及空缺点的 visibility 清零，使其不渲染）
+    // MoveNet 稀疏映射时部分索引为 null，需补为 { visibility: 0 } 以防 drawLandmarks 崩溃
+    const maskedLm = poseLm.map((lm, i) => {
+        if (!lm) return { x: 0, y: 0, z: 0, visibility: 0 };
+        if (FACE_DETAIL_IDX.has(i)) return { ...lm, visibility: 0 };
+        return lm;
+    });
     drawLandmarks(ctx, maskedLm, { color, radius: 2, lineWidth: 1 });
 
     // 绘制头部椭圆轮廓 + 颈部连线
@@ -2215,8 +2529,7 @@ function completeOnboarding() {
     }
 
     saveUser({ name, gender: selectedGender, intensity: selectedIntensity, createdAt: Date.now() });
-    refreshAvatarBtn();
-    showScreen('screen-welcome');
+    _runLoadingScreen();
 }
 
 /* ── PROFILE DRAWER ── */
@@ -2317,7 +2630,27 @@ function renderLog() {
 }
 
 function clearLog() {
-    if (!confirm('确定要清除所有锻炼记录吗？此操作不可撤销。')) return;
+    const btn = document.querySelector('.btn-d-action[onclick="clearLog()"]');
+    if (!btn) return;
+    if (btn.dataset.confirming !== 'yes') {
+        btn.dataset.confirming = 'yes';
+        btn.textContent = '⚠️  再次点击确认清除';
+        btn.style.background = 'rgba(255,80,80,0.18)';
+        btn.style.borderColor = 'rgba(255,80,80,0.5)';
+        clearTimeout(btn._confirmTimer);
+        btn._confirmTimer = setTimeout(() => {
+            btn.dataset.confirming = '';
+            btn.innerHTML = '🗑️ &nbsp;清除所有锻炼记录';
+            btn.style.background = '';
+            btn.style.borderColor = '';
+        }, 3000);
+        return;
+    }
+    clearTimeout(btn._confirmTimer);
+    btn.dataset.confirming = '';
+    btn.innerHTML = '🗑️ &nbsp;清除所有锻炼记录';
+    btn.style.background = '';
+    btn.style.borderColor = '';
     localStorage.removeItem(LOG_KEY);
     document.getElementById('log-content').innerHTML = renderLog();
 }
@@ -2378,102 +2711,67 @@ function _showLoadError(msg) {
 function _resetLoadUI() {
     document.getElementById('load-error-box').style.display  = 'none';
     document.getElementById('load-success-box').style.display = 'none';
-    ['hands', 'pose', 'camera'].forEach(id => _setLoadStep(id, 'pending', '等待中'));
+    ['model', 'camera'].forEach(id => _setLoadStep(id, 'pending', '等待中'));
 }
 
-async function initMediaPipe() {
-    const HandsClass  = window.Hands;
-    const CameraClass = window.Camera;
-
-    // ── Step 0: JS scripts availability ──────────────────
-    if (!HandsClass || !CameraClass) {
-        _setLoadStep('hands',  'fail', '脚本未加载');
-        _setLoadStep('pose',   'fail', '脚本未加载');
-        _setLoadStep('camera', 'fail', '—');
-        _showLoadError('手势检测脚本未就绪，请刷新页面重试。');
-        return;
-    }
-
-    // ── Step 1: Hands model ──────────────────────────────
-    // 注意：MediaPipe 各 Solution 共享 window.createMediapipeSolutionsWasm 等全局变量，
-    // 必须串行初始化，否则并行时互相覆盖全局状态导致失败。
-    _setLoadStep('hands', 'loading', '加载中…');
-    let hands;
-    try {
+// 后台静默预加载 Hands（幂等，重复调用安全）
+function _startBgLoad() {
+    if (_handsInitPromise) return;
+    _handsInitPromise = (async () => {
+        await Promise.all([loadScript(SCRIPT_URLS.drawing), loadScript(SCRIPT_URLS.camera)]);
+        await loadScript(SCRIPT_URLS.hands);
+        const HandsClass = window.Hands;
+        if (!HandsClass) throw new Error('Hands script not ready');
         const h = new HandsClass({
-            locateFile: (file) => { const s = document.querySelector('script[src*="/hands.js"]'); return s ? s.src.slice(0, s.src.lastIndexOf('/') + 1) + file : `/mediapipe/hands/${file}`; }
+            locateFile: (file) => { const s = document.querySelector('script[src*="/hands.js"]'); return s ? s.src.slice(0, s.src.lastIndexOf('/') + 1) + file : `${CDN}/@mediapipe/hands@0.4.1675469240/${file}`; }
         });
-        h.setOptions({
-            maxNumHands: 2,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.7,
-            minTrackingConfidence: 0.6,
-        });
+        h.setOptions({ maxNumHands: 2, modelComplexity: 0, minDetectionConfidence: 0.7, minTrackingConfidence: 0.6 });
         h.onResults(onResults);
-        if (typeof h.initialize === 'function') {
-            await h.initialize();
-        }
-        hands = h;
-        _setLoadStep('hands', 'ok', '已就绪');
-    } catch (e) {
-        console.error('[Hands] initialize failed:', e);
-        _setLoadStep('hands', 'fail', '加载失败');
-        _showLoadError('手势识别引擎初始化失败，请刷新页面重试。（详情见控制台）');
-        return;
-    }
+        if (typeof h.initialize === 'function') await h.initialize();
+        _handsInst = h;
+    })();
+}
 
-    // ── Step 2: Pose model (optional) ───────────────────
-    _setLoadStep('pose', window.Pose ? 'loading' : 'fail', window.Pose ? '加载中…' : '脚本未加载');
-    if (window.Pose) {
+// 显示加载页并等待资源就绪，完成后进入欢迎页
+async function _runLoadingScreen() {
+    document.getElementById('load-error-box').style.display   = 'none';
+    document.getElementById('load-success-box').style.display = 'none';
+    showScreen('screen-loading');
+
+    // ── 模型资源 ──────────────────────────────────────────
+    if (_handsInst) {
+        _setLoadStep('model', 'ok', '已就绪');
+    } else {
+        _setLoadStep('model', 'loading', '加载中…');
         try {
-            const p = new window.Pose({
-                locateFile: (file) => { const s = document.querySelector('script[src*="/pose.js"]'); return s ? s.src.slice(0, s.src.lastIndexOf('/') + 1) + file : `/mediapipe/pose/${file}`; }
-            });
-            p.setOptions({
-                modelComplexity: 1,
-                smoothLandmarks: true,
-                minDetectionConfidence: 0.6,
-                minTrackingConfidence: 0.5,
-            });
-            p.onResults(onPoseResults);
-            if (typeof p.initialize === 'function') {
-                await p.initialize();
-            }
-            poseInst = p;
-            _setLoadStep('pose', 'ok', '已就绪');
+            await _handsInitPromise;
+            _setLoadStep('model', 'ok', '已就绪');
         } catch (e) {
-            // Pose 非必须 — 标记失败但继续（颈部/overhead 活动将不可用）
-            console.error('[Pose] initialize failed:', e);
-            _setLoadStep('pose', 'fail', '加载失败');
-            poseInst = null;
+            console.error('[Hands] initialize failed:', e);
+            _setLoadStep('model', 'fail', '加载失败');
+            _showLoadError('手势识别引擎初始化失败，请刷新页面重试。（详情见控制台）');
+            return;
         }
     }
 
-    // ── Step 3: Camera ───────────────────────────────────
-    // navigator.mediaDevices 仅在安全上下文（HTTPS / localhost）下可用
+    // ── 摄像头 ────────────────────────────────────────────
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         _setLoadStep('camera', 'fail', '需要 HTTPS');
         _showLoadError('摄像头 API 不可用：请通过 HTTPS 访问本页面。（HTTP 下浏览器禁止访问摄像头）');
         return;
     }
     _setLoadStep('camera', 'loading', '等待授权…');
-    const cam = new CameraClass(video, {
+    const cam = new window.Camera(video, {
         onFrame: async () => {
             const exId = EXERCISES[currentExIdx]?.id;
             if (exId === 'neck_tilt' && poseInst) {
                 await poseInst.send({ image: video });
             } else if (exId === 'overhead' && poseInst) {
-                await Promise.all([
-                    hands.send({ image: video }),
-                    poseInst.send({ image: video }),
-                ]);
+                await Promise.all([_handsInst.send({ image: video }), poseInst.send({ image: video })]);
             } else if (_isIdleScreen() && poseInst) {
-                await Promise.all([
-                    hands.send({ image: video }),
-                    poseInst.send({ image: video }),
-                ]);
+                await Promise.all([_handsInst.send({ image: video }), poseInst.send({ image: video })]);
             } else {
-                await hands.send({ image: video });
+                await _handsInst.send({ image: video });
             }
         },
         width: 320, height: 240,
@@ -2483,9 +2781,12 @@ async function initMediaPipe() {
         await cam.start();
         resizeHandCanvas();
         _setLoadStep('camera', 'ok', '已就绪');
-        // 短暂展示成功状态后过场进入主界面
         document.getElementById('load-success-box').style.display = 'flex';
-        setTimeout(_showInitialScreen, 900);
+        setTimeout(() => {
+            refreshAvatarBtn();
+            refreshCardReps();
+            showScreen('screen-welcome');
+        }, 900);
     } catch (e) {
         console.warn('Camera failed:', e);
         document.getElementById('monitor-window').style.display = 'none';
@@ -2501,9 +2802,13 @@ async function initMediaPipe() {
 }
 
 function retryModelLoad() {
-    poseInst = null;
-    _resetLoadUI();
-    initMediaPipe();
+    poseInst          = null;
+    poseReady         = false;
+    poseFailed        = false;
+    _handsInst        = null;
+    _handsInitPromise = null;
+    _startBgLoad();
+    _runLoadingScreen();
 }
 
 
@@ -2516,21 +2821,70 @@ function hideCameraModal() {
 }
 async function retryCameraPermission() {
     hideCameraModal();
-    _resetLoadUI();
-    document.getElementById('screen-loading').classList.remove('hidden');
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         stream.getTracks().forEach(t => t.stop());
     } catch (_) { /* ignore */ }
-    initMediaPipe();
+    _runLoadingScreen();
 }
 
 /* ═══════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════ */
 window.addEventListener('load', () => {
-    // Small delay so CDN scripts have time to register globals
-    setTimeout(initMediaPipe, 600);
+    // 立即后台预加载所有资源
+    _startBgLoad();
+
+    // Pose 后台静默加载（MoveNet 优先，失败自动降级到 MediaPipe Pose lite）
+    _updatePoseCards();
+    ;(async () => {
+        try {
+            // 方案 A：MoveNet（需 TF Hub，国内可能被封锁）
+            console.log('[Pose] loading TF.js scripts...');
+            await loadScript(SCRIPT_URLS.tfjs);
+            await loadScript(SCRIPT_URLS.poseDet);
+            console.log('[Pose] scripts loaded, initializing MoveNet (8s timeout)...');
+            const adapter = new MoveNetPoseAdapter();
+            adapter.onResults(onPoseResults);
+            // 8 秒超时：TF Hub（tfhub.dev）在中国大陆被封锁，createDetector 会挂起
+            await Promise.race([
+                adapter.initialize(),
+                new Promise((_, rej) => setTimeout(() => rej(new Error('MoveNet init timeout (8s) — TF Hub may be blocked')), 8000)),
+            ]);
+            poseInst  = adapter;
+            poseReady = true;
+            console.log('[Pose] MoveNet ready ✓');
+        } catch (eA) {
+            console.warn('[Pose] MoveNet failed, falling back to MediaPipe Pose lite:', eA.message);
+            try {
+                // 方案 B：MediaPipe Pose lite（来自 unpkg.com，国内可访问）
+                await loadScript(SCRIPT_URLS.pose);
+                const PoseClass = window.Pose;
+                if (!PoseClass) throw new Error('Pose script not ready');
+                const p = new PoseClass({
+                    locateFile: (file) => { const s = document.querySelector('script[src*="/pose.js"]'); return s ? s.src.slice(0, s.src.lastIndexOf('/') + 1) + file : `${CDN}/@mediapipe/pose@0.5.1675469404/${file}`; }
+                });
+                p.setOptions({ modelComplexity: 0, smoothLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.5 });
+                p.onResults(onPoseResults);
+                if (typeof p.initialize === 'function') await p.initialize();
+                poseInst  = p;
+                poseReady = true;
+                console.log('[Pose] MediaPipe Pose lite ready ✓');
+            } catch (eB) {
+                console.error('[Pose] all backends failed:', eB);
+                poseFailed = true;
+            }
+        } finally {
+            _updatePoseCards(); // 无论成功、降级、失败都同步卡片状态
+        }
+    })();
+
+    // 按用户状态决定第一屏
+    if (getUser()) {
+        _runLoadingScreen(); // 已注册：直接进加载页（模型可能已就绪）
+    } else {
+        showScreen('screen-onboarding'); // 未注册：先注册
+    }
 });
 </script>
 </body>
